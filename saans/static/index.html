@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saans — what the air is doing to your household today</title>
+<style>
+/* ---------------------------------------------------------------------------
+   Saans. Palette is derived from the AQI category, not chosen for mood:
+   the page takes the colour of the air you are breathing. Everything else is
+   paper, ink, and one rule line.
+--------------------------------------------------------------------------- */
+:root{
+  --paper:#f6f3ec;
+  --paper-2:#efeae0;
+  --ink:#14151a;
+  --ink-2:#3d3f45;
+  /* Contrast-checked against both --paper and the #faf7f0 card surface:
+     muted 4.74:1, poor 4.61:1, moderate 4.78:1, satisfactory 4.78:1, good 4.72:1.
+     All clear the WCAG AA 4.5:1 floor for normal text. */
+  --muted:#6e6c65;
+  --rule:#d8d2c4;
+  --rule-2:#c4bdac;
+  --accent:#c0392b;
+  --accent-ink:#ffffff;
+  --good:#2e7a4f;
+  --ok:#637225;
+  --warn:#8b6508;
+  --bad:#b4501f;
+  --vbad:#b02a1e;
+  --sev:#6d1410;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --shadow:0 1px 0 rgba(20,21,26,.06), 0 8px 24px -18px rgba(20,21,26,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  background-image:linear-gradient(var(--paper-2),var(--paper-2));
+  background-size:100% 1px; background-repeat:no-repeat; background-position:0 0;
+}
+::selection{background:var(--accent);color:var(--accent-ink)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none;padding:0}
+a{color:inherit}
+h1,h2,h3,h4{margin:0;font-weight:600;line-height:1.15}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.mono{font-family:var(--mono);font-size:.86em}
+
+/* ---------- shell ---------- */
+.wrap{max-width:1360px;margin:0 auto;padding:0 28px 96px}
+@media(max-width:700px){.wrap{padding:0 16px 80px}}
+
+/* ---------- masthead ---------- */
+.masthead{
+  display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;
+  padding:22px 0 12px;border-bottom:1px solid var(--rule);
+}
+.wordmark{font-family:var(--serif);font-size:26px;letter-spacing:-.02em;font-weight:600}
+.wordmark small{font-family:var(--sans);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-left:10px;font-weight:500}
+.loc{
+  margin-left:auto;display:flex;align-items:center;gap:10px;position:relative;
+}
+.locbox{
+  display:flex;align-items:center;gap:8px;border:1px solid var(--rule-2);
+  background:var(--paper);padding:7px 12px;border-radius:2px;min-width:220px;
+}
+.locbox input{border:none;outline:none;background:none;width:100%;font-size:14px}
+.locbox svg{flex:0 0 auto;opacity:.5}
+.results{
+  position:absolute;top:calc(100% + 6px);right:0;width:340px;background:var(--paper);
+  border:1px solid var(--rule-2);box-shadow:var(--shadow);z-index:40;display:none;max-height:320px;overflow:auto;
+}
+.results.open{display:block}
+.results button{display:block;width:100%;text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);font-size:13.5px}
+.results button:hover{background:var(--paper-2)}
+.results button span{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
+
+/* ---------- the number ---------- */
+.verdict{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:36px;align-items:end;
+  padding:26px 0 18px;border-bottom:1px solid var(--rule);
+}
+@media(max-width:860px){.verdict{grid-template-columns:1fr;gap:14px}}
+.headline{
+  font-family:var(--serif);font-size:clamp(22px,2.4vw,31px);line-height:1.28;
+  letter-spacing:-.015em;max-width:44ch;text-wrap:pretty;
+}
+.headline b{font-weight:600;box-shadow:inset 0 -.5em 0 color-mix(in srgb, var(--accent) 16%, transparent)}
+.big{display:flex;align-items:flex-end;gap:16px}
+.bigval{font-family:var(--serif);font-size:clamp(58px,8vw,96px);line-height:.82;letter-spacing:-.04em}
+.bigmeta{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding-bottom:8px}
+.chiplabel{font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:600}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+  letter-spacing:.04em;padding:3px 9px;border:1px solid currentColor;border-radius:2px;
+}
+.pill.dot::before{content:"";width:6px;height:6px;background:currentColor;border-radius:50%}
+.sub{color:var(--muted);font-size:12.5px}
+
+/* ---------- grids ---------- */
+.cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:44px;padding-top:26px}
+@media(max-width:1040px){.cols{grid-template-columns:1fr;gap:32px}}
+section{margin-bottom:34px}
+.sechead{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;border-bottom:1px solid var(--rule);padding-bottom:7px}
+.sechead h2{font-size:12px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--ink-2)}
+.sechead .aside{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* ---------- now strip ---------- */
+.now{display:grid;gap:0;border-top:1px solid var(--rule)}
+.nowitem{display:grid;grid-template-columns:76px minmax(0,1fr);gap:16px;padding:13px 0;border-bottom:1px solid var(--rule)}
+.nowitem .k{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;padding-top:3px}
+.nowitem .v{font-size:15px;font-weight:500}
+.nowitem .w{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+/* ---------- household rows ---------- */
+.people{border-top:1px solid var(--rule)}
+.prow{padding:12px 0;border-bottom:1px solid var(--rule)}
+.prow-top{display:flex;align-items:baseline;gap:10px}
+.pname{font-weight:600;font-size:14.5px}
+.page{color:var(--muted);font-size:12px}
+.pdose{margin-left:auto;font-family:var(--mono);font-size:13px}
+.pbar{height:5px;background:var(--paper-2);margin:8px 0 6px;position:relative;overflow:hidden;border-radius:1px}
+.pbar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.85}
+.pmeta{display:flex;gap:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.pmeta b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+.tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--vbad)}
+
+/* ---------- the day ribbon ---------- */
+.ribbon{margin-top:4px}
+.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:96px}
+.hours div{position:relative;border-radius:1px 1px 0 0;min-height:2px;transition:opacity .15s}
+.hours div:hover{outline:1.5px solid var(--ink);outline-offset:1px}
+.hours div.mark::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);top:-8px;
+  width:1px;height:6px;background:var(--ink);
+}
+.axis{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:5px;font-family:var(--mono);font-size:9.5px;color:var(--muted)}
+.axis span{text-align:center;overflow:hidden}
+.legend{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:10px;gap:14px;flex-wrap:wrap}
+
+/* ---------- plan ---------- */
+.plan{border:1px solid var(--rule-2);background:linear-gradient(180deg,#fbf9f4,#f6f3ec);padding:22px 24px}
+.plan .opening{font-family:var(--serif);font-size:17.5px;line-height:1.5;margin:0 0 18px;text-wrap:pretty}
+.plan .opening:empty{display:none}
+.planitem{display:grid;grid-template-columns:92px minmax(0,1fr);gap:16px;padding:11px 0;border-top:1px solid var(--rule)}
+.planitem .t{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:3px}
+.planitem .a{font-weight:500}
+.planitem .y{font-size:12.5px;color:var(--ink-2);margin-top:2px}
+.planitem .eff{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px}
+.topflag{
+  display:inline-block;margin-left:8px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--accent);border:1px solid currentColor;padding:1px 5px;vertical-align:2px;
+}
+.onething{border-top:2px solid var(--ink);margin-top:16px;padding-top:14px}
+.onething .lab{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--accent)}
+.onething .a{font-family:var(--serif);font-size:18px;margin:4px 0 4px;line-height:1.3}
+.onething .y{font-size:13px;color:var(--ink-2)}
+.one-meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:8px;letter-spacing:.01em}
+
+/* the figures the opening sentence was written around */
+.figstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin:0 0 18px}
+.figcell{background:var(--paper);padding:9px 11px}
+.figcell .fv{font-family:var(--serif);font-size:22px;line-height:1;letter-spacing:-.02em}
+.figcell .fl{font-family:var(--mono);font-size:10px;color:var(--ink-2);margin-top:3px}
+.figcell .fk{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:5px;font-weight:700}
+.planfoot{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--muted);flex-wrap:wrap}
+.streaming{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.1s infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* ---------- options table ---------- */
+.opts{border-top:1px solid var(--rule)}
+.opt{border-bottom:1px solid var(--rule)}
+.opt summary{
+  display:grid;grid-template-columns:26px minmax(0,1fr) 92px 96px;gap:14px;align-items:center;
+  padding:12px 0;cursor:pointer;list-style:none;
+}
+.opt summary::-webkit-details-marker{display:none}
+.opt summary:hover .otitle{text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}
+.orank{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.otitle{font-weight:500;font-size:14.5px;line-height:1.35}
+.otitle .who{display:block;font-size:11.5px;color:var(--muted);font-weight:400;margin-top:2px}
+.opct{text-align:right;font-family:var(--mono);font-size:14px;font-weight:600}
+.opct small{display:block;font-weight:400;font-size:10px;color:var(--muted)}
+.ocost{text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
+.ocost small{display:block;font-size:10px;color:var(--muted)}
+.obar{height:3px;background:var(--paper-2);grid-column:2 / -1;margin:-6px 0 0}
+.obar i{display:block;height:100%;background:var(--accent);opacity:.7}
+.obody{padding:4px 0 18px 40px}
+@media(max-width:640px){
+  .opt summary{grid-template-columns:22px minmax(0,1fr) 70px;gap:10px}
+  .ocost{display:none}
+  .obody{padding-left:0}
+}
+.obody h4{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px;font-weight:700}
+.obody p{margin:0 0 8px;font-size:13.5px;color:var(--ink-2);max-width:66ch}
+.obody .src{font-size:11.5px;color:var(--muted);border-left:2px solid var(--rule-2);padding-left:10px;margin-top:10px}
+.personbars{display:grid;gap:5px;margin-top:8px}
+.personbar{display:grid;grid-template-columns:96px minmax(0,1fr) 76px;gap:10px;align-items:center;font-size:12px}
+.track{height:6px;background:var(--paper-2);position:relative;border-radius:1px}
+.track i{position:absolute;left:0;top:0;bottom:0;background:var(--ink-2);opacity:.35}
+.track i.aft{background:var(--accent);opacity:.9}
+.mono-r{font-family:var(--mono);font-size:11.5px;text-align:right}
+
+/* ---------- side panels ---------- */
+.card{border:1px solid var(--rule-2);padding:16px 18px;margin-bottom:18px;background:#faf7f0}
+.card h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:700;margin-bottom:10px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;font-family:var(--mono);font-size:12.5px;text-align:right}
+.bar-row{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:9px}
+.bar-row .lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
+.bar-row .track{height:7px}
+.bar-row .track i{background:var(--accent);opacity:.8}
+.note{font-size:12.5px;color:var(--ink-2);border-left:2px solid var(--accent);padding-left:12px;margin-top:10px}
+.tiny{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* ---------- editor ---------- */
+details.editor{border:1px solid var(--rule-2);background:#faf7f0;margin-bottom:22px}
+details.editor summary{padding:12px 16px;cursor:pointer;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--ink-2);display:flex;align-items:center;gap:10px;list-style:none}
+details.editor summary::-webkit-details-marker{display:none}
+details.editor summary::after{content:"edit";margin-left:auto;font-size:10px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--rule-2);padding:2px 7px}
+details.editor[open] summary::after{content:"close"}
+.edbody{padding:4px 16px 18px;border-top:1px solid var(--rule)}
+.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 18px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.field select,.field input{border:1px solid var(--rule-2);background:var(--paper);padding:6px 8px;border-radius:2px;font-size:13px;outline:none}
+.field select:focus,.field input:focus{border-color:var(--ink)}
+.people-edit{display:grid;gap:10px;margin-top:6px}
+.person-edit{display:grid;grid-template-columns:1.3fr 64px 1.1fr auto;gap:8px;align-items:center}
+@media(max-width:640px){.person-edit{grid-template-columns:1fr 64px;}}
+.person-edit input,.person-edit select{border:1px solid var(--rule-2);background:var(--paper);padding:5px 7px;font-size:12.5px;border-radius:2px;width:100%}
+.checks{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:4px}
+.checks label{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2);cursor:pointer}
+.actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.btn{
+  border:1px solid var(--ink);background:var(--ink);color:var(--paper);
+  padding:9px 16px;font-size:12.5px;font-weight:600;letter-spacing:.04em;border-radius:2px;
+}
+.btn:hover{background:var(--ink-2);border-color:var(--ink-2)}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--rule-2)}
+.btn.ghost:hover{border-color:var(--ink);background:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- evidence ---------- */
+details.evi{border:1px solid var(--rule-2);background:#faf7f0}
+details.evi summary{
+  padding:12px 14px;cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:3px;
+}
+details.evi summary::-webkit-details-marker{display:none}
+details.evi summary::after{
+  content:"open";position:absolute;right:14px;top:12px;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);border:1px solid var(--rule-2);padding:2px 6px;
+}
+details.evi{position:relative}
+details.evi[open] summary::after{content:"close"}
+.evi-h{font-size:13px;font-weight:600}
+.evi-s{font-size:11px;color:var(--muted);max-width:34ch}
+details.evi[open] summary{border-bottom:1px solid var(--rule)}
+details.evi .factors{padding:4px 14px 14px}
+.factors{display:grid;gap:2px;margin-top:8px}
+.fgroup{border-top:1px solid var(--rule);padding:9px 0}
+.fgroup h5{margin:0 0 5px;font-size:11.5px;font-weight:700;color:var(--ink-2)}
+.frow{display:grid;grid-template-columns:1fr auto;gap:10px;font-size:11.5px;padding:2px 0;color:var(--muted)}
+.frow b{font-family:var(--mono);color:var(--ink);font-weight:500}
+.kind{font-size:9px;letter-spacing:.06em;text-transform:uppercase;border:1px solid currentColor;padding:0 3px;margin-left:5px;opacity:.7}
+.kind.estimate{color:var(--bad)}
+.kind.measured{color:var(--good)}
+.method{font-size:12.5px;color:var(--ink-2);padding-left:18px;margin:6px 0}
+.method li{margin-bottom:5px}
+
+/* ---------- states ---------- */
+.skeleton{background:linear-gradient(90deg,var(--paper-2) 25%,#f7f4ec 50%,var(--paper-2) 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:2px;color:transparent!important}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.err{border:1px solid var(--vbad);color:var(--vbad);padding:12px 16px;font-size:13px;background:#fdf4f2}
+[hidden]{display:none!important}
+.spacer{height:1px}
+
+/* ---------- footer ---------- */
+.colophon{margin-top:50px;padding-top:16px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;align-items:baseline}
+.colophon b{color:var(--ink-2);font-weight:600}
+
+@media print{
+  .masthead .loc, .actions, details.editor, .opt, .colophon, .streaming{display:none!important}
+  body{background:#fff}
+  .plan{border:1px solid #ccc}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- keyboard and screen-reader affordances ---------- */
+/* A visible focus ring on every interactive element. The default UA outline
+   is removed in most resets, and this app is mostly driven by controls, so it
+   has to be deliberate. */
+:where(button, a, input, select, summary, [tabindex]):focus-visible{
+  outline:2px solid var(--ink); outline-offset:2px; border-radius:1px;
+}
+:where(button, a, input, select, summary):focus:not(:focus-visible){outline:none}
+.locbox:focus-within{border-color:var(--ink); box-shadow:0 0 0 1px var(--ink)}
+.locbox input:focus{outline:none}
+
+/* Skip link: the page is long, and the first tab stop should let a keyboard
+   or screen-reader user jump past the masthead. */
+.skip{
+  position:absolute; left:-9999px; top:0; z-index:100;
+  background:var(--ink); color:var(--paper); padding:10px 16px; font-size:13px;
+}
+.skip:focus{left:12px; top:12px}
+
+/* Screen-reader-only text for values that are conveyed visually by length. */
+.sr{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
+}
+/* The day ribbon is decorative geometry; the same series is in the table
+   below it for anyone not reading a bar chart. */
+.visually-hidden-table{
+  position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
+}
+@media(prefers-contrast:more){
+  :root{--rule:#a9a294; --rule-2:#8f887a; --muted:#4a4842}
+}
+@media(prefers-reduced-transparency:reduce){
+  .results{background:var(--paper)}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the numbers</a>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="wordmark">Saans<small>air, for a household</small></div>
+    <div class="loc">
+      <div class="locbox">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <input id="q" placeholder="Search a city or district" autocomplete="off"
+               aria-label="Search a city or district"
+               role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+      </div>
+      <div class="results" id="results" role="listbox" aria-label="Matching places"></div>
+    </div>
+  </header>
+
+  <div id="err" class="err" role="alert" hidden></div>
+
+  <main id="main">
+  <div class="verdict">
+    <div>
+      <div class="chiplabel" style="color:var(--muted);margin-bottom:9px" id="where">Delhi, India</div>
+      <h1 class="headline" id="headline" aria-live="polite"></h1>
+    </div>
+    <div class="big">
+      <div class="bigval num" id="aqi">—</div>
+      <div class="bigmeta">
+        <span class="chiplabel" id="aqilabel" style="color:var(--accent)">loading</span>
+        <span class="pill dot" id="grap">GRAP</span>
+        <span class="sub" id="whonote">vs WHO guideline</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <!-- ============ main column ============ -->
+    <div>
+      <details class="editor">
+        <summary>Your household</summary>
+        <div class="edbody">
+          <div class="egrid">
+            <div class="field"><label for="f_kind">Home</label>
+              <select id="f_kind">
+                <option value="apartment">Apartment / flat</option>
+                <option value="independent">Independent house</option>
+                <option value="single_room">Single room</option>
+              </select></div>
+            <div class="field"><label for="f_fuel">Cooking fuel</label>
+              <select id="f_fuel">
+                <option value="lpg">LPG cylinder</option>
+                <option value="png">Piped gas</option>
+                <option value="electric">Electric / induction</option>
+                <option value="biomass">Wood, dung or crop waste</option>
+                <option value="kerosene">Kerosene</option>
+              </select></div>
+            <div class="field"><label for="f_exh">Kitchen extraction</label>
+              <select id="f_exh">
+                <option value="none">None</option>
+                <option value="window">Window only</option>
+                <option value="fan">Exhaust fan</option>
+                <option value="chimney">Chimney to outdoors</option>
+              </select></div>
+            <div class="field"><label for="f_clean">Air cleaner</label>
+              <select id="f_clean">
+                <option value="none">None</option>
+                <option value="box_fan">Box-fan filter</option>
+                <option value="hepa_small">Small HEPA</option>
+                <option value="hepa_medium">Larger HEPA</option>
+              </select></div>
+            <div class="field"><label for="f_mode">Usual commute</label>
+              <select id="f_mode">
+                <option value="two_wheeler">Two-wheeler</option>
+                <option value="car_ac">Car, air-conditioned</option>
+                <option value="car_open">Car, windows open</option>
+                <option value="auto">Auto-rickshaw</option>
+                <option value="bus">Bus</option>
+                <option value="metro">Metro / train</option>
+                <option value="cycle">Cycle</option>
+                <option value="walk">Walk</option>
+                <option value="wfh">Work from home</option>
+              </select></div>
+            <div class="field"><label for="f_km">Commute, km a day</label>
+              <input id="f_km" type="number" min="0" max="200" step="1" value="18"></div>
+            <div class="field"><label for="f_mask">Mask outside</label>
+              <select id="f_mask">
+                <option value="none">None</option>
+                <option value="cloth">Cloth</option>
+                <option value="surgical">Surgical</option>
+                <option value="kn95">KN95 / KF94</option>
+                <option value="n95">N95, fitted</option>
+              </select></div>
+            <div class="field"><label for="f_cookh">Cooking, minutes a day</label>
+              <input id="f_cookh" type="number" min="0" max="480" step="10" value="90"></div>
+          </div>
+          <div class="field" style="margin-top:14px"><label>Who lives here</label>
+            <div class="people-edit" id="peopleEdit"></div>
+          </div>
+          <div class="checks">
+            <label><input type="checkbox" id="f_coil"> Mosquito coils at night</label>
+            <label><input type="checkbox" id="f_incense"> Incense daily</label>
+            <label><input type="checkbox" id="f_sweep" checked> Dry sweeping</label>
+            <label><input type="checkbox" id="f_exercise" checked> Outdoor exercise</label>
+            <label><input type="checkbox" id="f_office" checked> Leave home for work/school</label>
+          </div>
+          <div class="field" style="margin-top:14px;max-width:260px"><label for="f_burn">Waste burned in the yard, kg a week</label>
+            <input id="f_burn" type="number" min="0" max="50" step="0.5" value="0"></div>
+          <div class="actions">
+            <button class="btn" id="apply">Recompute</button>
+            <button class="btn ghost" id="planBtn">Write today's plan</button>
+            <span class="tiny" id="editnote">Numbers update from measured exposure factors, not vibes.</span>
+          </div>
+        </div>
+      </details>
+
+      <section>
+        <div class="sechead"><h2>Right now</h2><span class="aside" id="stamp"></span></div>
+        <div class="now" id="now"></div>
+      </section>
+
+      <section>
+        <div class="sechead"><h2>Today's plan</h2><span class="aside" id="planby"></span></div>
+        <div class="plan" id="plan">
+          <p class="opening" style="color:var(--muted)">Press “Write today's plan” to have a local model turn this household's numbers into a plan for the day. Every figure in it comes from the calculation below.</p>
+          <div class="planfoot"><span class="tiny">Runs on your machine. Nothing about your family leaves the device except a latitude and longitude for the weather.</span></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="sechead"><h2>What actually helps, in order</h2><span class="aside">ranked by dose removed per rupee</span></div>
+      <div class="opts" id="opts" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <!-- ============ side column ============ -->
+    <div>
+      <section>
+        <div class="sechead"><h2>Your day, by hour</h2></div>
+        <div class="ribbon">
+          <div class="hours" id="hours" role="img" aria-labelledby="hoursDesc"></div>
+          <p id="hoursDesc" class="sr"></p>
+          <div class="axis" id="axis" aria-hidden="true"></div>
+          <div class="legend">
+            <span id="legpeak"></span>
+            <span id="leglow"></span>
+          </div>
+          <p class="tiny" style="margin-top:10px">Mean concentration the household actually breathes, hour by hour, weighted by who is where. The morning inversion and the evening peak are the two spikes; the afternoon trough is your ventilation window.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="sechead"><h2>Who is carrying it</h2></div>
+        <div class="people" id="people"></div>
+        <p class="tiny" style="margin-top:10px">“Share” weights each person's inhaled dose by sensitivity — age, asthma, heart or lung disease, pregnancy. It shows who to protect first, not who will get ill.</p>
+      </section>
+
+      <section>
+        <div class="sechead"><h2>Your air, by source</h2></div>
+        <div class="card" id="sources"></div>
+      </section>
+
+      <section>
+        <div class="sechead"><h2>What you put into it</h2></div>
+        <div class="card" id="emissions"></div>
+      </section>
+
+      <section>
+        <div class="sechead"><h2>Where the numbers come from</h2></div>
+        <details class="evi">
+          <summary>
+            <span class="evi-h">The full model, with sources</span>
+            <span class="evi-s" id="eviCount">every constant, and whether it is measured, standard, or a declared estimate</span>
+          </summary>
+          <div class="factors" id="factors"></div>
+        </details>
+      </section>
+    </div>
+  </div>
+  </main>
+  <div class="colophon">
+    <span><b>Saans</b> runs locally. Air quality from Open-Meteo / CAMS; AQI from CPCB breakpoints; health thresholds from WHO 2021.</span>
+    <span id="modelsrc"></span>
+    <span style="margin-left:auto">Not medical advice.</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x !== undefined) n.textContent = typeof x === "string" ? U(x) : x; return n };
+const fmt = (v, d = 0) => (v === null || v === undefined || Number.isNaN(v)) ? "—" : Number(v).toLocaleString("en-IN", { maximumFractionDigits: d, minimumFractionDigits: d });
+// The engine speaks in plain ASCII ("ug/m3") so it can be read in a terminal.
+// The screen should speak properly, so units are converted at the last moment.
+const U = s => String(s).replace(/ug\/m3/g, "µg/m³").replace(/ug\/m³/g, "µg/m³");
+const txt = (node, value) => { node.textContent = U(value); };
+const inr = v => v === 0 ? "free" : (v < 0 ? "saves Rs " + fmt(-v) : "Rs " + fmt(v));
+
+const COLORS = { good:"#2e7a4f", satisfactory:"#637225", moderate:"#8b6508", poor:"#b4501f", very_poor:"#b02a1e", severe:"#6d1410" };
+
+// The household the page starts with: a Delhi flat, a two-wheeler commute, a
+// school-age child and an older parent. Chosen because it is the most common
+// shape of a household in the air this app is for, not because it is average.
+let state = {
+  location: { lat:28.6139, lon:77.2090, label:"Delhi, India", city:"Delhi", country_code:"IN", tz:"Asia/Kolkata" },
+  home:    { kind:"apartment", cooking_fuel:"lpg", kitchen_exhaust:"none", cleaner:"none", mixer:"none", windows_day:"mixed", windows_night:"closed", occupants:4 },
+  habits:  { incense_per_day:0, mosquito_coil:false, dry_sweeping:true, waste_burning_kg_week:0, outdoor_exercise:true, exercise_hour:7, cook_hours:[8,20], cook_minutes:90 },
+  transport:{ mode:"two_wheeler", km_per_day:18, mask:"none" },
+  people:  [
+    { name:"You", age:34, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false },
+    { name:"Partner", age:33, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false },
+    { name:"Child", age:7, conditions:[], commutes:false, cooks:false, exercises:true, pregnant:false },
+    { name:"Amma", age:68, conditions:["heart"], commutes:false, cooks:false, exercises:false, pregnant:false }
+  ],
+  office:true, tone:"practical"
+};
+let last = null;
+
+/* ---------------- location search ---------------- */
+let tmr;
+$("#q").addEventListener("input", e => {
+  clearTimeout(tmr);
+  const v = e.target.value.trim();
+  const isEmpty = v.length < 2;
+  $("#q").setAttribute("aria-expanded", String(!isEmpty));
+  if (isEmpty) { $("#results").classList.remove("open"); return; }
+  tmr = setTimeout(async () => {
+    try {
+      const r = await fetch("/api/geocode?q=" + encodeURIComponent(v));
+      const d = await r.json();
+      const box = $("#results"); box.innerHTML = "";
+      if (!d.results.length) { box.innerHTML = '<div style="padding:12px 14px;color:var(--muted);font-size:13px">No match. Try a district or state.</div>'; }
+      d.results.forEach(c => {
+        const b = el("button"); b.setAttribute("role", "option"); b.tabIndex = 0;
+        b.innerHTML = `${c.name}<span>${[c.admin, c.country].filter(Boolean).join(", ")}</span>`;
+        b.onclick = () => {
+          state.location = { lat:c.lat, lon:c.lon, label:c.label, city:c.name, country_code:c.country_code, tz:c.timezone || "auto" };
+          box.classList.remove("open"); $("#q").value = ""; $("#q").setAttribute("aria-expanded", "false"); load();
+        };
+        box.appendChild(b);
+      });
+      box.classList.add("open");
+    } catch (err) {}
+  }, 280);
+});
+// Escape closes the result list, which is what a keyboard user expects.
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Escape") { $("#results").classList.remove("open"); $("#q").setAttribute("aria-expanded", "false"); }
+});
+document.addEventListener("click", e => { if (!e.target.closest(".loc")) { $("#results").classList.remove("open"); $("#q").setAttribute("aria-expanded", "false"); } });
+
+/* ---------------- household editor ---------------- */
+function renderPeopleEditor(){
+  const wrap = $("#peopleEdit"); wrap.innerHTML = "";
+  state.people.forEach((p, i) => {
+    const row = el("div", "person-edit");
+    const n = el("input"); n.value = p.name; n.placeholder = "Name"; n.oninput = e => p.name = e.target.value;
+    const a = el("input"); a.type = "number"; a.min = 0; a.max = 105; a.value = p.age; a.oninput = e => p.age = +e.target.value;
+    const c = el("select");
+    [["", "no condition"], ["asthma", "asthma"], ["copd", "COPD"], ["heart", "heart disease"], ["diabetes", "diabetes"]]
+      .forEach(([v, t]) => { const o = el("option", null, t); o.value = v; if ((p.conditions[0] || "") === v) o.selected = true; c.appendChild(o); });
+    c.onchange = e => p.conditions = e.target.value ? [e.target.value] : [];
+    const x = el("button", "btn ghost", "×"); x.style.padding = "4px 9px"; x.title = "Remove";
+    x.onclick = () => { if (state.people.length > 1) { state.people.splice(i, 1); renderPeopleEditor(); } };
+    const chk = el("label"); chk.style.fontSize = "11px"; chk.style.display = "flex"; chk.style.gap = "4px"; chk.style.alignItems = "center";
+    chk.innerHTML = `<input type="checkbox" ${p.commutes ? "checked" : ""} style="width:auto"> travels`;
+    chk.querySelector("input").onchange = e => p.commutes = e.target.checked;
+    const chk2 = el("label"); chk2.style.fontSize = "11px"; chk2.style.display = "flex"; chk2.style.gap = "4px"; chk2.style.alignItems = "center";
+    chk2.innerHTML = `<input type="checkbox" ${p.cooks ? "checked" : ""} style="width:auto"> cooks`;
+    chk2.querySelector("input").onchange = e => p.cooks = e.target.checked;
+    const wrap2 = el("div"); wrap2.style.display = "flex"; wrap2.style.gap = "10px"; wrap2.style.alignItems = "center";
+    wrap2.append(chk, chk2, x);
+    row.append(n, a, c, wrap2);
+    wrap.appendChild(row);
+  });
+  const add = el("button", "btn ghost", "+ Add a person"); add.style.justifySelf = "start"; add.style.marginTop = "2px";
+  add.onclick = () => { state.people.push({ name:"New", age:30, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false }); renderPeopleEditor(); };
+  wrap.appendChild(add);
+}
+
+function syncEditor(){
+  $("#f_kind").value = state.home.kind;
+  $("#f_fuel").value = state.home.cooking_fuel;
+  $("#f_exh").value = state.home.kitchen_exhaust;
+  $("#f_clean").value = state.home.cleaner;
+  $("#f_mode").value = state.transport.mode;
+  $("#f_km").value = state.transport.km_per_day;
+  $("#f_mask").value = state.transport.mask;
+  $("#f_cookh").value = state.habits.cook_minutes;
+  $("#f_coil").checked = state.habits.mosquito_coil;
+  $("#f_incense").checked = state.habits.incense_per_day > 0;
+  $("#f_sweep").checked = state.habits.dry_sweeping;
+  $("#f_exercise").checked = state.habits.outdoor_exercise;
+  $("#f_office").checked = state.office;
+  $("#f_burn").value = state.habits.waste_burning_kg_week;
+  renderPeopleEditor();
+}
+
+function readEditor(){
+  state.home.kind = $("#f_kind").value;
+  state.home.cooking_fuel = $("#f_fuel").value;
+  state.home.kitchen_exhaust = $("#f_exh").value;
+  state.home.cleaner = $("#f_clean").value;
+  state.transport.mode = $("#f_mode").value;
+  state.transport.km_per_day = +$("#f_km").value || 0;
+  state.transport.mask = $("#f_mask").value;
+  state.habits.cook_minutes = +$("#f_cookh").value || 0;
+  state.habits.mosquito_coil = $("#f_coil").checked;
+  state.habits.incense_per_day = $("#f_incense").checked ? 2 : 0;
+  state.habits.dry_sweeping = $("#f_sweep").checked;
+  state.habits.outdoor_exercise = $("#f_exercise").checked;
+  state.office = $("#f_office").checked;
+  state.habits.waste_burning_kg_week = +$("#f_burn").value || 0;
+  state.home.occupants = state.people.length;
+}
+
+/* ---------------- load ---------------- */
+async function load(){
+  $("#err").hidden = true;
+  $("#headline").textContent = "Reading the air over your street…";
+  $("#headline").classList.add("skeleton");
+  try {
+    const r = await fetch("/api/brief", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(state) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || "server error");
+    last = d;
+    render(d);
+  } catch (e) {
+    $("#err").hidden = false;
+    $("#err").textContent = "Could not compute today's numbers: " + e.message + ". The server may still be starting; press Recompute.";
+    $("#headline").classList.remove("skeleton");
+    $("#headline").textContent = "—";
+  }
+}
+
+function paint(slug){
+  const c = COLORS[slug] || COLORS.moderate;
+  document.documentElement.style.setProperty("--accent", c);
+}
+
+function render(d){
+  const b = d.brief;
+  paint(b.aqi.slug);
+  $("#headline").classList.remove("skeleton");
+  $("#where").textContent = state.location.label + " · " + b.stamp;
+  $("#headline").textContent = U(b.headline);
+  $("#aqi").textContent = fmt(b.aqi.aqi);
+  $("#aqilabel").textContent = b.aqi.label + " · " + (b.aqi.dominant || "");
+  const g = $("#grap");
+  g.textContent = b.grap.applies ? b.grap.label : "No GRAP stage";
+  g.style.color = b.grap.applies ? "var(--accent)" : "var(--muted)";
+  $("#whonote").textContent = U(b.ambient_pm25 + " µg/m³ outdoors · " + b.who.multiple + "× the WHO guideline");
+  $("#stamp").textContent = b.ambient_label;
+  $("#modelsrc").textContent = d.model.available ? "Plans written by " + d.model.name + " on this machine." : "No local model found; the plan is generated deterministically.";
+
+  // right now
+  const now = $("#now"); now.innerHTML = "";
+  const ICON = { window:"windows", mask:"masks", filter:"filter", run:"exercise", gov:"policy", stove:"stove" };
+  b.now.forEach(a => {
+    const row = el("div", "nowitem");
+    row.append(el("div", "k", ICON[a.icon] || a.icon));
+    const v = el("div"); v.append(el("div", "v", a.text), el("div", "w", a.why));
+    row.append(v); now.appendChild(row);
+  });
+  if (!b.now.length) now.innerHTML = '<div class="nowitem"><div class="k">air</div><div><div class="v">Nothing urgent. An ordinary day.</div><div class="w">Still worth knowing the peak hour on the right.</div></div></div>';
+
+  renderHours(d);
+  renderPeople(d);
+  renderSources(d);
+  renderEmissions(d);
+  renderOptions(d);
+  renderFactors();
+}
+
+function renderHours(d){
+  const hrs = d.hourly || [];
+  const max = Math.max(...hrs.map(h => h.pm25), 1);
+  const box = $("#hours"); box.innerHTML = "";
+  const peak = d.brief.worst_hour, low = d.brief.best_hour;
+  hrs.forEach(h => {
+    const bar = el("div");
+    const frac = Math.max(0.04, h.pm25 / max);
+    bar.style.height = (frac * 100) + "%";
+    bar.style.background = "var(--accent)";
+    bar.style.opacity = 0.35 + 0.65 * frac;
+    if (h.hour === peak.hour) bar.classList.add("mark");
+    bar.title = `${String(h.hour).padStart(2,"0")}:00 — ${h.pm25} µg/m³`;
+    box.appendChild(bar);
+  });
+  // The bars are geometry; assistive tech gets the same series as a sentence.
+  const desc = `Outdoor PM2.5 by hour. ` +
+    hrs.map(h => `${String(h.hour).padStart(2,"0")}:00, ${h.pm25} micrograms per cubic metre`).join("; ") +
+    `. Dirtiest at ${String(peak.hour).padStart(2,"0")}:00 with ${peak.pm25}, ` +
+    `cleanest at ${String(low.hour).padStart(2,"0")}:00 with ${low.pm25}.`;
+  $("#hoursDesc").textContent = U(desc);
+  const ax = $("#axis"); ax.innerHTML = "";
+  hrs.forEach(h => ax.appendChild(el("span", null, h.hour % 3 === 0 ? String(h.hour).padStart(2,"0") : "")));
+  $("#legpeak").textContent = `worst ${String(peak.hour).padStart(2,"0")}:00 · ${peak.pm25} µg/m³`;
+  $("#leglow").textContent = `cleanest ${String(low.hour).padStart(2,"0")}:00 · ${low.pm25} µg/m³`;
+}
+
+function renderPeople(d){
+  const rows = d.brief.household.people;
+  const maxd = Math.max(...rows.map(r => r.dose_ug), 1);
+  const box = $("#people"); box.innerHTML = "";
+  rows.forEach(p => {
+    const row = el("div", "prow");
+    const top = el("div", "prow-top");
+    top.append(el("span", "pname", p.name), el("span", "page", "age " + p.age));
+    if (p.sensitivity >= 1.4) top.appendChild(el("span", "tag", "sensitive"));
+    top.appendChild(el("span", "pdose", fmt(p.dose_ug) + " µg"));
+    const bar = el("div", "pbar"); const i = el("i"); i.style.width = (p.dose_ug / maxd * 100) + "%"; bar.appendChild(i);
+    bar.setAttribute("aria-hidden", "true");
+    const meta = el("div", "pmeta");
+    meta.innerHTML = `<span>breathing <b>${p.mean_exposure}</b> µg/m³</span>
+      <span><b>${p.cigarettes}</b> cigarette-equiv</span>
+      <span><b>${Math.round(p.attributed_risk_share * 100)}%</b> of household risk</span>`;
+    // The bar length carries the comparison visually; give it a text equivalent.
+    const sr = el("span", "sr");
+    sr.textContent = U(`${p.name}, age ${p.age}: inhales ${fmt(p.dose_ug)} micrograms a day, `
+      + `an average exposure of ${p.mean_exposure} micrograms per cubic metre, `
+      + `${p.cigarettes} cigarette-equivalents, ${Math.round(p.attributed_risk_share * 100)} percent of household risk.`);
+    row.append(top, sr, bar, meta);
+    box.appendChild(row);
+  });
+}
+
+function renderSources(d){
+  const p = d.brief.profile, box = $("#sources"); box.innerHTML = "";
+  const head = el("div"); head.style.marginBottom = "10px";
+  head.innerHTML = `<div style="font-weight:600;font-size:13px">${p.label}</div>
+    <div class="tiny">${p.basis}${p.verified_city ? "" : " — a regional pattern, not a measurement of your street"}</div>`;
+  box.appendChild(head);
+  const mid = p.mid || {};
+  Object.entries(mid).sort((a,b) => b[1]-a[1]).forEach(([k, v]) => {
+    const r = el("div", "bar-row");
+    const l = el("div", "lbl"); l.append(el("span", null, k), el("span", "num", v + "%"));
+    const t = el("div", "track"); const i = el("i"); i.style.width = v + "%"; t.appendChild(i);
+    r.append(l, t); box.appendChild(r);
+  });
+  if (p.local_note) { const n = el("div", "note", p.local_note); box.appendChild(n); }
+}
+
+function renderEmissions(d){
+  const e = d.emissions, box = $("#emissions"); box.innerHTML = "";
+  const dl = el("dl", "kv");
+  const add = (k, v) => { dl.append(el("dt", null, k), el("dd", null, v)); };
+  // A gas stove's particulate output is genuinely close to zero; printing
+  // "0.00 g" reads like a broken number rather than a fact. Say it in words.
+  const tiny = e.cook_pm25_g_day < 0.05;
+  add("Stove PM2.5", tiny ? "negligible" : fmt(e.cook_pm25_g_day, 1) + " g/day");
+  add("Over a year", tiny ? "under 20 g" : fmt(e.cook_pm25_kg_year, 1) + " kg");
+  add("Open burning", e.burn_pm25_g_day > 0 ? fmt(e.burn_pm25_g_day, 1) + " g/day" : "none");
+  add("Commute CO₂", fmt(e.travel_co2_kg_day, 2) + " kg/day");
+  add("Cooking CO₂", fmt(e.cook_co2_kg_day, 2) + " kg/day");
+  add("Fuel and fares", "Rs " + fmt(e.cost_inr_day) + "/day");
+  box.appendChild(dl);
+  if (d.home.cooking_fuel === "biomass" || d.home.cooking_fuel === "kerosene") {
+    box.appendChild(el("div", "note",
+      `Your stove alone puts about ${fmt(e.cook_pm25_kg_year, 1)} kg of fine particles into the air each year. ` +
+      `Measured field emission factors for a mud chulha are 10-23 g per kg of wood, dung or crop waste — ` +
+      `this is that arithmetic, not an estimate of the plume.`));
+  } else {
+    box.appendChild(el("div", "tiny",
+      "Gas or electric cooking is why the stove number is negligible. The remaining emissions are the commute and anything burned outdoors."));
+  }
+}
+
+function renderOptions(d){
+  const box = $("#opts"); box.innerHTML = "";
+  d.ranked.slice(0, 9).forEach((r, i) => {
+    const det = el("details", "opt");
+    const sum = el("summary");
+    const rank = el("span", "orank", String(i + 1).padStart(2, "0"));
+    const title = el("span", "otitle", r.title);
+    if (r.worst_person && r.worst_pct > 1) {
+      title.appendChild(el("span", "who", `biggest gain for ${r.worst_person}: ${r.worst_pct}%`));
+    }
+    const pct = el("div", "opct");
+    pct.innerHTML = `${r.pct > 0 ? "−" + r.pct + "%" : "—"}<small>${r.band_pct[0]}–${r.band_pct[1]}%</small>`;
+    const cost = el("div", "ocost");
+    cost.innerHTML = `${inr(r.cost_inr)}<small>${r.runtime_inr_yr ? inr(r.runtime_inr_yr) + "/yr" : r.effort || ""}</small>`;
+    sum.append(rank, title, pct, cost);
+    det.appendChild(sum);
+
+    const body = el("div", "obody");
+    body.appendChild(el("p", null, r.why));
+    if (r.per_person && r.per_person.length) {
+      body.appendChild(el("h4", null, "Dose, before and after"));
+      const pb = el("div", "personbars");
+      const maxv = Math.max(...r.per_person.map(p => p.before), 1);
+      r.per_person.forEach(p => {
+        const row = el("div", "personbar");
+        const t = el("div", "track");
+        t.innerHTML = `<i style="width:${p.before / maxv * 100}%"></i><i class="aft" style="left:${p.after / maxv * 100}%;width:${(p.before - p.after) / maxv * 100}%"></i>`;
+        row.append(el("span", null, p.name), t, el("span", "mono-r", `−${p.pct}%`));
+        pb.appendChild(row);
+      });
+      body.appendChild(pb);
+      body.appendChild(el("div", "tiny", "Grey bar: today. Accent section: the part that goes away."));
+    }
+    if (r.emissions_before && r.emissions_after) {
+      const dpm = r.emissions_before.pm25_g_day - r.emissions_after.pm25_g_day;
+      const dco = r.emissions_before.co2_kg_day - r.emissions_after.co2_kg_day;
+      if (dpm > 0.01 || dco > 0.01) {
+        body.appendChild(el("h4", null, "What leaves your chimney and tailpipe"));
+        const bits = [];
+        if (dpm > 0.01) bits.push(`${fmt(dpm,1)} g less PM2.5 a day (${fmt(dpm * 365 / 1000,1)} kg a year)`);
+        if (dco > 0.01) bits.push(`${fmt(dco,2)} kg less CO₂ a day`);
+        body.appendChild(el("p", null, bits.join("; ") + "."));
+      }
+    }
+    body.appendChild(el("div", "src", "Evidence: " + r.source));
+    if (r.unquantified) body.appendChild(el("div", "tiny", "Not scored: no honest percentage can be attached to this one, so it sits at the bottom of the ranking on purpose."));
+    det.appendChild(body);
+    box.appendChild(det);
+  });
+}
+
+let factorsLoaded = false;
+async function renderFactors(){
+  if (factorsLoaded) return;
+  factorsLoaded = true;
+  try {
+    const r = await fetch("/api/factors"); const d = await r.json();
+    const box = $("#factors"); box.innerHTML = "";
+    Object.entries(d.groups).forEach(([g, items]) => {
+      const row = el("div", "fgroup"); row.appendChild(el("h5", null, g));
+      Object.entries(items).forEach(([k, v]) => {
+        const f = el("div", "frow");
+        const left = el("span"); left.appendChild(document.createTextNode(k));
+        const kind = el("span", "kind " + v.kind, v.kind);
+        left.appendChild(kind);
+        f.append(left, el("b", null, v.value + " " + v.unit));
+        row.appendChild(f);
+      });
+      box.appendChild(row);
+    });
+    const n = Object.values(d.groups).reduce((a, g) => a + Object.keys(g).length, 0);
+    $("#eviCount").textContent = `${n} constants, each with its source and whether it is measured, standard, or a declared estimate`;
+    const m = el("div", "fgroup"); m.appendChild(el("h5", null, "How the calculation works"));
+    const ol = el("ol", "method"); (d.method || []).forEach(t => ol.appendChild(el("li", null, t))); m.appendChild(ol);
+    box.appendChild(m);
+    const lim = el("div", "fgroup"); lim.appendChild(el("h5", null, "What it cannot do"));
+    const ul = el("ul", "method"); (d.limits || []).forEach(t => ul.appendChild(el("li", null, t))); lim.appendChild(ul);
+    box.appendChild(lim);
+  } catch (e) { $("#factors").textContent = "Evidence list unavailable."; }
+}
+
+/* ---------------- plan streaming ---------------- */
+let ctrl = null;
+async function generatePlan(){
+  const btn = $("#planBtn"); btn.disabled = true; btn.textContent = "Writing…";
+  const box = $("#plan");
+  box.innerHTML = "";
+  const open = el("p", "opening"); open.innerHTML = '<span class="streaming"><span class="pulse"></span>Reading your numbers</span>';
+  box.appendChild(open);
+  const status = el("div", "planfoot");
+  status.innerHTML = '<span class="tiny" id="genstatus">Building the fact sheet…</span>';
+  box.appendChild(status);
+  let raw = "";
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  try {
+    const resp = await fetch("/api/plan", {
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(state), signal: ctrl.signal
+    });
+    if (!resp.ok) throw new Error("plan endpoint returned " + resp.status);
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream:true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        const ev = /^event: (.+)$/m.exec(chunk);
+        const dt = /^data: (.+)$/m.exec(chunk);
+        if (!ev || !dt) continue;
+        let payload; try { payload = JSON.parse(dt[1]); } catch (e) { continue; }
+        if (ev[1] === "facts") {
+          $("#genstatus").textContent = `Fact sheet ready (${payload.chars} characters). Writing…`;
+        } else if (ev[1] === "token") {
+          raw += payload.t;
+          open.textContent = raw.replace(/^\{[\s\S]*?"opening"\s*:\s*"/, "").replace(/"\s*,\s*"today[\s\S]*$/, "").replace(/\\n/g, " ");
+        } else if (ev[1] === "plan") {
+          renderPlan(payload);
+        } else if (ev[1] === "error") {
+          $("#genstatus").textContent = "Model error: " + payload.error + ". The deterministic plan still works — press the button again.";
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") {
+      open.textContent = "The plan could not be written. The arithmetic above is unaffected.";
+      $("#genstatus").textContent = String(e.message);
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = "Write today's plan";
+  }
+}
+
+function renderPlan(p){
+  const box = $("#plan"); box.innerHTML = "";
+  const o = el("p", "opening", p.opening || ""); box.appendChild(o);
+
+  // The figures the opening paragraph was written around, printed by Python so
+  // they cannot drift from the sentence they belong to.
+  if (p.figures && p.figures.length) {
+    const fg = el("div", "figstrip");
+    p.figures.forEach(f => {
+      const cell = el("div", "figcell");
+      cell.append(el("div", "fv", f.value));
+      cell.append(el("div", "fl", f.unit));
+      cell.append(el("div", "fk", f.label));
+      fg.appendChild(cell);
+    });
+    box.appendChild(fg);
+  }
+
+  const topKey = (p.the_one_thing && p.the_one_thing.action) || "";
+  (p.today || []).forEach(t => {
+    const row = el("div", "planitem");
+    row.append(el("div", "t", t.time || ""));
+    const v = el("div");
+    const head = el("div", "a", t.action || "");
+    if (topKey && t.action === topKey) head.appendChild(el("span", "topflag", "the one thing"));
+    v.appendChild(head);
+    if (t.why) v.append(el("div", "y", t.why));
+    const meta = el("div", "eff");
+    const bits = [];
+    if (t.effect !== undefined) bits.push(t.effect + "% of the household dose");
+    if (t.who) bits.push("most for " + t.who + " at " + t.who_pct + "%");
+    if (t.effort) bits.push(t.effort);
+    meta.textContent = bits.join(" · ");
+    if (meta.textContent) v.append(meta);
+    row.append(v); box.appendChild(row);
+  });
+
+  if (p.the_one_thing && p.the_one_thing.action) {
+    const c = el("div", "onething");
+    c.append(el("div", "lab", "If you do one thing"));
+    c.append(el("div", "a", p.the_one_thing.action));
+    if (p.the_one_thing.why) c.append(el("div", "y", p.the_one_thing.why));
+    const m = el("div", "one-meta");
+    const bits = [];
+    if (p.the_one_thing.effect !== undefined) {
+      bits.push(`−${p.the_one_thing.effect}% household dose`);
+      if (p.the_one_thing.band) bits.push(`range ${p.the_one_thing.band[0]}–${p.the_one_thing.band[1]}%`);
+    }
+    if (p.the_one_thing.who) bits.push(`most for ${p.the_one_thing.who} at ${p.the_one_thing.who_pct}%`);
+    if (p.the_one_thing.cost_inr !== undefined) bits.push(inr(p.the_one_thing.cost_inr));
+    m.textContent = bits.join(" · ");
+    c.appendChild(m);
+    if (p.the_one_thing.source) c.appendChild(el("div", "src", "Evidence: " + p.the_one_thing.source));
+    box.appendChild(c);
+  }
+
+  if (p.this_week && p.this_week.length) {
+    const h = el("div", "lab"); h.textContent = "This week";
+    h.style.cssText = "font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--muted);margin-top:18px;border-top:1px solid var(--rule);padding-top:14px";
+    box.appendChild(h);
+    p.this_week.forEach(w => {
+      const row = el("div", "planitem");
+      row.append(el("div", "t", w.cost_inr !== undefined ? inr(w.cost_inr) : "free"));
+      const v = el("div");
+      v.append(el("div", "a", w.action || ""));
+      if (w.why) v.append(el("div", "y", w.why));
+      if (w.impact) v.append(el("div", "eff", w.impact));
+      row.append(v); box.appendChild(row);
+    });
+  }
+
+  if (p.for_children) {
+    const c = el("div", "onething"); c.style.borderTopColor = "var(--rule-2)";
+    c.append(el("div", "lab", "For the children"));
+    const t = el("div"); t.style.cssText = "font-size:13.5px;margin-top:6px;color:var(--ink-2)"; t.textContent = U(p.for_children);
+    c.appendChild(t); box.appendChild(c);
+  }
+
+  if (p.what_this_does_not_fix) {
+    const c = el("p"); c.style.cssText = "font-size:12.5px;color:var(--muted);margin:16px 0 0;border-top:1px solid var(--rule);padding-top:12px";
+    c.textContent = U(p.what_this_does_not_fix); box.appendChild(c);
+  }
+
+  const foot = el("div", "planfoot");
+  const by = p.generated_by === "deterministic"
+    ? "Built-in wording. The plan and every figure are the same either way."
+    : `Wording by ${"the local model"}; every action and figure decided by the calculation.`;
+  foot.appendChild(el("span", "tiny", by));
+  if (p.notes && p.notes.length) {
+    foot.appendChild(el("span", "tiny", `${p.notes.length} sentence(s) removed because they carried a figure the model had not been given.`));
+  }
+  if (p.fallback_reason) foot.appendChild(el("span", "tiny", p.fallback_reason));
+  box.appendChild(foot);
+  $("#planby").textContent = p.generated_by === "deterministic" ? "built-in wording" : "local model wording";
+}
+
+/* ---------------- wiring ---------------- */
+$("#apply").onclick = () => { readEditor(); load(); };
+$("#planBtn").onclick = () => { readEditor(); generatePlan(); };
+["f_kind","f_fuel","f_exh","f_clean","f_mode","f_mask"].forEach(id => $("#"+id).addEventListener("change", () => { readEditor(); load(); }));
+["f_km","f_cookh","f_burn"].forEach(id => $("#"+id).addEventListener("change", () => { readEditor(); load(); }));
+["f_coil","f_incense","f_sweep","f_exercise","f_office"].forEach(id => $("#"+id).addEventListener("change", () => { readEditor(); load(); }));
+
+syncEditor();
+load();
+</script>
+</body>
+</html>

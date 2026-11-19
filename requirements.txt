@@ -1,0 +1,8 @@
+# Runtime
+fastapi>=0.110,<1.0
+uvicorn>=0.27,<1.0
+pydantic>=2.5,<3.0
+
+# Nothing else. The exposure model is stdlib Python, the front end is a single
+# HTML file with no build step, and the language model is called over plain
+# HTTP to a local Ollama, not through an SDK.
