@@ -298,6 +298,7 @@ def fact_sheet(brief: dict, ranked: list[dict], household: dict, people: list[di
             L.append(f"- {s['start']} to {s['end']}: {s['label']}")
         L.append("")
     L.append("TOKENS - the only way you may express a number. Copy exactly, braces included.")
+    L.append("Each token already includes its unit. Write {{OUT}}, never {{OUT}} ug/m3.")
     for k, v in tokens(brief, plan, ranked, people, profile).items():
         L.append(f"  {{{{{k}}}}} = {v}")
     return "\n".join(L)
@@ -404,6 +405,14 @@ def tokens(brief: dict, plan: dict, ranked: list[dict], people: list[dict], prof
         key = re.sub(r"[^A-Z0-9]", "", str(p.get("name", "")).upper())[:12] or "PERSON"
         t[f"SENS_{key}"] = str(p.get("sensitivity"))
         t[f"CIG_{key}"] = str(p.get("cigarettes"))
+        # The per-person dose, so the model can talk about who is carrying the
+        # most without reaching for a raw number. Without these tokens it was
+        # copying the figure out of the fact sheet and getting the sentence
+        # deleted as unverified — correct behaviour, wrong cause.
+        if p.get("dose_ug") is not None:
+            t[f"DOSE_{key}"] = f"{p['dose_ug']:,} µg/day"
+        if p.get("mean_exposure") is not None:
+            t[f"EXP_{key}"] = f"{p['mean_exposure']:g} µg/m³"
     if plan.get("top"):
         top = plan["top"]
         t["TOP_PCT"] = f"{top['pct']:g}%"
@@ -453,13 +462,17 @@ def _verified_literals(token_map: dict[str, str]) -> set[str]:
     return lit
 
 
-# Pollutants, standards and product classes carry digits in their names. They
-# are identifiers, not claims, and treating them as numbers deletes correct
-# sentences: "the outdoor PM2.5 is {{OUT}}" died because of the 2.5 in the
-# pollutant's name, and "an N95 stops the plume" died because of the 95.
+# Pollutants, standards, product classes — and units — carry digits in their
+# names. They are identifiers, not claims, and treating them as numbers deletes
+# correct sentences: "the outdoor PM2.5 is {{OUT}}" died because of the 2.5 in
+# the pollutant's name, and "breathes 86.3 ug/m3" died because of the 3 in the
+# unit. Units are included here so a plain reading of the number survives; the
+# number itself is still checked.
 _DOMAIN_TERMS = re.compile(
     r"\b(?:PM\s?2\.5|PM\s?10|PM\s?1|N95|KN95|KF94|FFP[23]|N99|"
-    r"NO2|NOx|SO2|CO2|O3|NH3|Pb|CO)\b",
+    r"NO2|NOx|SO2|CO2|O3|NH3|Pb|CO)\b"
+    r"|\b(?:ug|µg|mg|ng)\s*/\s*m(?:3|³)\b"      # the unit, not a claim
+    r"|\bm(?:3|³)\b|\bm2\b",                     # cubic/metre squared as written
     re.I,
 )
 
@@ -491,6 +504,35 @@ def _scrub_patterns(people: list[dict]) -> list[re.Pattern]:
     return pats
 
 
+_UNIT = r"(?:µg|ug|mg|ng)\s*/\s*m(?:3|³)"
+_DUP_UNIT = re.compile(
+    rf"{_UNIT}\s*{_UNIT}"          # "217.8 µg/m³ µg/m³" or "74.7 µg/m³ ug/m3"
+    r"|(%)[^%\w]{0,3}%"            # "22.5%%"
+    r"|(×)[^×\w]{0,3}×",           # "9.9× ×"
+    re.I,
+)
+
+
+def _dedupe_units(text: str) -> str:
+    """
+    Collapse a unit the model repeated after a token already supplied it.
+
+    Tokens carry their own unit ("151.3 µg/m³"), and a model writing
+    "{{OUT}} µg/m³" produces "151.3 µg/m³ µg/m³". It also mixes encodings —
+    "74.7 µg/m³ ug/m3" — so the pattern matches any two unit variants in a row,
+    not an exact duplicate. A doubled unit reads as broken software at exactly
+    the moment the reader is deciding whether to trust the number.
+    """
+    prev = None
+    while prev != text:
+        prev = text
+        text = _DUP_UNIT.sub(
+            lambda m: m.group(0).split()[0] if not (m.group(1) or m.group(2)) else (m.group(1) or m.group(2)),
+            text,
+        )
+    return text
+
+
 def enforce(text: dict, plan: dict, token_map: dict[str, str],
             brief: dict | None = None, people: list[dict] | None = None) -> tuple[dict, list[str]]:
     """
@@ -519,7 +561,9 @@ def enforce(text: dict, plan: dict, token_map: dict[str, str],
         for sentence in re.split(r"(?<=[.!?])\s+", s):
             masked = sentence
             for pat in masks:
-                masked = pat.sub(" \u2022 ", masked)
+                # Keep the whitespace structure so word boundaries in the
+                # remaining text are not corrupted by the mask itself.
+                masked = pat.sub(lambda m: " " * len(m.group(0)), masked)
             bad = [m.group(0) for m in num.finditer(masked) if m.group(0) not in verified]
             if bad:
                 notes.append(f"deleted a sentence with an unverified number ({bad[0]}): {sentence[:58]}")
@@ -534,6 +578,7 @@ def enforce(text: dict, plan: dict, token_map: dict[str, str],
             sentence = _TOKEN.sub(lambda m: token_map.get(m.group(1), ""), sentence)
             keep.append(sentence)
         out = " ".join(keep)
+        out = _dedupe_units(out)
         out = re.sub(r"\s+([.,;:])", r"\1", out)
         out = re.sub(r"\s{2,}", " ", out)
         return out.strip()

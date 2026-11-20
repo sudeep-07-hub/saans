@@ -42,10 +42,19 @@ def fixture(cooking="lpg", cleaner="none", kids=True):
                                {"city": "Delhi", "mid": {"Traffic": 25, "Industry": 26}}, True)
     brief["stamp"] = "now"
     ranked = advisor.rank(home, habits, tr, people, amb, True)
-    payload_people = [p.__dict__ | {"sensitivity": p.sensitivity} for p in E._with_roles(people)]
-    ranked_rows = payload_people
-    for p, row in zip(E._with_roles(people), ranked_rows):
-        pass
+    # Mirror what /api/brief actually returns: the computed exposure row merged
+    # into each person. Building the fixture from Person.__dict__ alone is the
+    # bug that handed the model "None ug" for every dose, and a fixture that
+    # reproduces the bug cannot catch it.
+    people_rows = brief["household"]["people"]
+    payload_people = [
+        row | {"sensitivity": row.get("sensitivity") or person.sensitivity,
+               "conditions": list(person.conditions),
+               "pregnant": person.pregnant,
+               "cooks": person.cooks,
+               "commutes": person.commutes}
+        for person, row in zip(E._with_roles(people), people_rows)
+    ]
     return home, habits, tr, people, amb, brief, ranked, payload_people
 
 
@@ -119,6 +128,54 @@ check("a sentence naming N95 survives", "N95" in dom_out["opening"], dom_out["op
 check("PM10 survives", "PM10" in dom_out["opening"], dom_out["opening"])
 check("KN95 survives", "KN95" in dom_out["for_children"], dom_out["for_children"])
 check("the PM2.5 token still resolved", "148" in dom_out["opening"], dom_out["opening"])
+
+# --- 2d. a doubled unit is repaired -----------------------------------
+# Tokens carry their own unit, so a model writing "{{OUT}} µg/m³" produces
+# "151 µg/m³ µg/m³". That reads as broken software, and it appeared in a real
+# generated plan before this was caught by reading output.
+dup = {
+    "opening": "Outside {{OUT}} µg/m³ and at {{WHOX}}× the guideline, with {{TOP_PCT}}% of the dose.",
+    "for_children": "",
+    "what_this_does_not_fix": "",
+}
+dup_out, _ = narrator.enforce(dict(dup), day, tmap, brief, ppl)
+check("a doubled µg/m³ is collapsed", "µg/m³ µg/m³" not in dup_out["opening"], dup_out["opening"])
+check("a doubled %% is collapsed", "%%" not in dup_out["opening"], dup_out["opening"])
+check("a doubled ×× is collapsed", "××" not in dup_out["opening"], dup_out["opening"])
+check("the single unit survives", dup_out["opening"].count("µg/m³") == 1, dup_out["opening"])
+
+# --- 2e. per-person dose is available as a token ---------------------
+# The model kept copying a real dose out of the fact sheet and getting the
+# sentence deleted. The fix is to give it a token, not to loosen the rule.
+check("a dose token exists per person",
+      any(k.startswith("DOSE_") for k in tmap), str([k for k in tmap if k.startswith("DOSE_")][:3]))
+check("a dose token carries its unit",
+      all("µg" in v for k, v in tmap.items() if k.startswith("DOSE_")))
+
+# --- 2f. the digit inside a unit is not mistaken for a number -----------
+# "breathes {{EXP}} ug/m3" was deleted because the 3 in the unit looked like a
+# stray figure. A unit is an identifier, like PM2.5 or N95. But a free-standing
+# number the engine never produced is still a claim, and must still die.
+unit_ok = {
+    "opening": "The child breathes {{EXP_CHILD}} ug/m3 inside.",
+    "for_children": "",
+    "what_this_does_not_fix": "",
+}
+ok_out, ok_notes = narrator.enforce(dict(unit_ok), day, tmap, brief, ppl)
+check("a token plus a redundant unit is cleaned, not deleted",
+      "74." in ok_out["opening"] or "µg/m³" in ok_out["opening"], ok_out["opening"])
+check("the unit suffix did not cause a deletion", len(ok_notes) == 0, str(ok_notes))
+check("only one unit survives in the sentence",
+      ok_out["opening"].count("m³") + ok_out["opening"].count("m3") == 1, ok_out["opening"])
+
+unit_bad = {
+    "opening": "The child breathes 86.3 ug/m3 inside.",
+    "for_children": "",
+    "what_this_does_not_fix": "",
+}
+bad_out, bad_notes = narrator.enforce(dict(unit_bad), day, tmap, brief, ppl)
+check("an invented number beside a real unit is still deleted",
+      "86.3" not in bad_out["opening"], repr(bad_out["opening"]))
 
 # --- 3. tokens resolve, invented tokens do not ----------------------------
 tok_text = {

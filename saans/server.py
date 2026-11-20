@@ -203,9 +203,17 @@ def build(h: Household) -> dict:
         "home": home.__dict__,
         "habits": {**habits.__dict__, "cook_hours": list(habits.cook_hours)},
         "transport": tr.__dict__,
+        # Merge the computed exposure row into each person, so the fact sheet and
+        # the narrator get the dose the engine actually calculated. Before this,
+        # the model was handed "None ug" for every member's dose — the numbers it
+        # would most want to write about were missing from its own fact sheet.
         "people": [
-            p.__dict__ | {"sensitivity": p.sensitivity}
-            for p in E._with_roles(people)
+            row | {"sensitivity": row.get("sensitivity") or person.sensitivity,
+                   "conditions": list(person.conditions),
+                   "pregnant": person.pregnant,
+                   "cooks": person.cooks,
+                   "commutes": person.commutes}
+            for person, row in zip(E._with_roles(people), brief["household"]["people"])
         ],
         "segments": lead["blocks"],
         "hourly": _hourly(amb),
