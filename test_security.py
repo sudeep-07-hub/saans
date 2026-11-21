@@ -73,6 +73,11 @@ def main() -> int:
         check("CSP forbids form submission", "form-action 'none'" in csp)
         check("CSP restricts connect to self", "connect-src 'self'" in csp)
         check("no remote script origin allowed", "script-src 'self'" in csp)
+        # This one is not decoration. The page uses innerHTML to build list
+        # rows, and 'unsafe-inline' in script-src permits inline handlers, so
+        # without script-src-attr 'none' an injected onerror= was executable.
+        # Verified in a real browser: the handler now does not fire.
+        check("CSP blocks inline event handlers", "script-src-attr 'none'" in csp)
         check("x-content-type-options nosniff", h.get("x-content-type-options") == "nosniff")
         check("x-frame-options DENY", h.get("x-frame-options") == "DENY")
         check("referrer-policy no-referrer", h.get("referrer-policy") == "no-referrer")

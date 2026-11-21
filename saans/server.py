@@ -50,7 +50,13 @@ async def security_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=(), payment=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'none'; "
+        # The app is one inline <script>, so 'unsafe-inline' is needed for the
+        # block itself. script-src-attr 'none' then removes the specific hole
+        # that matters: inline event handlers such as onerror= or onclick=,
+        # which is what an injected string would use. Without it, an
+        # innerHTML sink anywhere in the page is a live XSS.
         "script-src 'self' 'unsafe-inline'; "
+        "script-src-attr 'none'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data:; "
         "font-src 'self'; "
