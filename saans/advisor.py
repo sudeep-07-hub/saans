@@ -651,3 +651,130 @@ def school_guidance(aqi_value: int, people: list[E.Person]) -> dict:
         }
     return {"applies": True, "level": "moderate", "advice": "Normal outdoor play is fine.",
             "source": "CPCB"}
+
+def combine(
+    keys: list[str],
+    home: E.Home,
+    habits: E.Habits,
+    tr: E.Transport,
+    people: list[E.Person],
+    ambient: E.Ambient,
+    office: bool = True,
+) -> dict:
+    """
+    What a household gets from doing several things at once.
+
+    `simulate` answers one intervention. This answers the question a family
+    actually asks — "if I do these four, where do we end up?" — because
+    interventions do not stack additively. A filter and a chimney both cut the
+    indoor concentration, and once the filter has taken 34% the chimney's
+    contribution to the total is smaller than its solo number suggests.
+    Reporting the sum of individual percentages would overstate every
+    combination, so each set is applied and the day is re-run from scratch.
+
+    The order is deliberately the caller's: patches are dict-merged, and a later
+    patch overwriting an earlier one is a real conflict, which is reported
+    rather than silently resolved. "Fit a chimney" and "cook on electric" cannot
+    both be true if one changes the fuel and the other assumes the fuel.
+    """
+    unknown = [k for k in keys if k not in CATALOGUE]
+    if unknown:
+        return {"ok": False, "error": f"unknown intervention: {', '.join(unknown)}"}
+
+    base = E.evaluate(people, ambient, home, habits, tr, "mid", office)
+    base_lo = E.evaluate(people, ambient, home, habits, tr, "low", office)
+    base_hi = E.evaluate(people, ambient, home, habits, tr, "high", office)
+
+    patch: dict[str, dict] = {}
+    applied: list[dict] = []
+    conflicts: list[dict] = []
+
+    for key in keys:
+        spec = CATALOGUE[key]
+        p, meta = spec["fn"](home, habits, tr, people, ambient)
+        for section in ("home", "habits", "transport"):
+            for field_name, value in (p.get(section) or {}).items():
+                if section in patch and field_name in patch[section] \
+                        and patch[section][field_name] != value:
+                    conflicts.append({
+                        "field": f"{section}.{field_name}",
+                        "kept": patch[section][field_name],
+                        "dropped": value,
+                        "by": key,
+                    })
+                    continue
+                patch.setdefault(section, {})[field_name] = value
+        applied.append({
+            "key": key,
+            "title": meta["title"],
+            "cost_inr": meta.get("cost_inr", 0),
+            "runtime_inr_yr": meta.get("runtime_inr_yr", 0),
+            "solo_pct": round(
+                (base["household_dose_ug"] - E.evaluate(
+                    people, ambient,
+                    *apply_patch(home, habits, tr, p), "mid", office
+                )["household_dose_ug"]) / base["household_dose_ug"] * 100, 1
+            ) if base["household_dose_ug"] else 0.0,
+        })
+
+    h2, ha2, t2 = apply_patch(home, habits, tr, patch)
+    after = E.evaluate(people, ambient, h2, ha2, t2, "mid", office)
+    after_lo = E.evaluate(people, ambient, h2, ha2, t2, "low", office)
+    after_hi = E.evaluate(people, ambient, h2, ha2, t2, "high", office)
+
+    def pct(before: float, aft: float) -> float:
+        return round((before - aft) / before * 100, 1) if before else 0.0
+
+    total = pct(base["household_dose_ug"], after["household_dose_ug"])
+    band = sorted([
+        pct(base_lo["household_dose_ug"], after_lo["household_dose_ug"]),
+        pct(base_hi["household_dose_ug"], after_hi["household_dose_ug"]),
+    ])
+
+    # The honest arithmetic note: what the individual percentages would have
+    # claimed if they were added up, beside what actually happens.
+    naive_sum = round(sum(a["solo_pct"] for a in applied), 1)
+
+    per_person = []
+    for i, person in enumerate(people):
+        b = base["people"][i]
+        a = after["people"][i]
+        per_person.append({
+            "name": person.name,
+            "before": round(b["dose_ug"], 1),
+            "after": round(a["dose_ug"], 1),
+            "saved": round(b["dose_ug"] - a["dose_ug"], 1),
+            "pct": pct(b["dose_ug"], a["dose_ug"]),
+        })
+    per_person.sort(key=lambda r: -r["pct"])
+
+    emis0 = E.household_emissions(home, habits, tr, len(people))
+    emis1 = E.household_emissions(h2, ha2, t2, len(people))
+
+    return {
+        "ok": True,
+        "keys": keys,
+        "applied": applied,
+        "conflicts": conflicts,
+        "effect": {
+            "dose_before": round(base["household_dose_ug"], 1),
+            "dose_after": round(after["household_dose_ug"], 1),
+            "dose_saved_ug": round(base["household_dose_ug"] - after["household_dose_ug"], 1),
+            "pct": total,
+            "cig_before": base["household_cigarettes"],
+            "cig_after": after["household_cigarettes"],
+        },
+        "band_pct": band,
+        "naive_sum_pct": naive_sum,
+        "overlap_pct": round(naive_sum - total, 1),
+        "per_person": per_person,
+        "emissions_before": emis0,
+        "emissions_after": emis1,
+        "cost_inr": sum(a["cost_inr"] for a in applied),
+        "runtime_inr_yr": sum(a["runtime_inr_yr"] for a in applied),
+        "after_state": {
+            "home": {k: v for k, v in patch.get("home", {}).items()},
+            "habits": {k: v for k, v in patch.get("habits", {}).items()},
+            "transport": {k: v for k, v in patch.get("transport", {}).items()},
+        },
+    }

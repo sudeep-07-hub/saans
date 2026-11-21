@@ -146,6 +146,25 @@ def main() -> int:
                            {"household": {}, "key": "nonexistent_intervention"})
         check("unknown intervention returns 404", status == 404, str(status))
 
+        # --- /api/combine: same contract, plus its own bounds -------------
+        st, _, body = req(base + "/api/combine", "POST",
+                          {"household": {}, "keys": ["nonexistent_intervention"]})
+        check("combine rejects an unknown key with 404", st == 404, str(st))
+        st, _, body = req(base + "/api/combine", "POST", {"household": {}, "keys": []})
+        # Parse rather than substring-match: json.dumps puts a space after the
+        # colon, so b'"pct": 0' is not stable formatting.
+        empty_ok = False
+        try:
+            empty_ok = st == 200 and json.loads(body)["effect"]["pct"] == 0
+        except (ValueError, KeyError):
+            empty_ok = False
+        check("combine accepts an empty set", empty_ok, f"{st} {body[:60]!r}")
+        # An unbounded list is a cheap denial of service: each key re-runs a
+        # whole day per person per scenario.
+        too_many = ["cleaner"] * 15
+        st, _, _ = req(base + "/api/combine", "POST", {"household": {}, "keys": too_many})
+        check("combine caps the key list", st == 422, str(st))
+
         # --- SSE endpoint streams and terminates -------------------------
         import http.client
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=180)

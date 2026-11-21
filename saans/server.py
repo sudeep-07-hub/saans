@@ -151,6 +151,13 @@ class SimRequest(BaseModel):
     key: str = Field(..., max_length=40)
 
 
+class CombineRequest(BaseModel):
+    household: Household
+    # Bounded: each key is a full day re-evaluation, so an unbounded list is a
+    # cheap denial of service. 14 is the size of the catalogue.
+    keys: list[str] = Field(default_factory=list, max_length=14)
+
+
 def to_models(h: Household):
     home = E.Home(**h.home.model_dump())
     habits = E.Habits(**h.habits.model_dump())
@@ -289,6 +296,26 @@ def simulate(req: SimRequest):
     if req.key not in advisor.CATALOGUE:
         raise HTTPException(status_code=404, detail="unknown intervention")
     return advisor.simulate(req.key, home, habits, tr, people, amb, req.household.office)
+
+
+@app.post("/api/combine")
+def combine(req: CombineRequest):
+    """
+    Several interventions at once, re-run from scratch.
+
+    The app's centrepiece lets a household tick four or five actions and see
+    where they land. Effects do not add, so this cannot be done by summing the
+    per-intervention numbers client-side; the whole day is re-evaluated with
+    every patch applied.
+    """
+    home, habits, tr, people = to_models(req.household)
+    loc = req.household.location
+    amb = data.fetch_ambient(loc.lat, loc.lon, loc.label, loc.tz)
+    unknown = [k for k in req.keys if k not in advisor.CATALOGUE]
+    if unknown:
+        # Same status as /api/simulate, so a client handles both the same way.
+        raise HTTPException(status_code=404, detail=f"unknown intervention: {', '.join(unknown)}")
+    return advisor.combine(req.keys, home, habits, tr, people, amb, req.household.office)
 
 
 # --- generation -------------------------------------------------------------
