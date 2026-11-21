@@ -3,1041 +3,943 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Saans — what the air is doing to your household, hour by hour, and what to do about it today.">
 <title>Saans — what the air is doing to your household today</title>
-<style>
-/* ---------------------------------------------------------------------------
-   Saans. Palette is derived from the AQI category, not chosen for mood:
-   the page takes the colour of the air you are breathing. Everything else is
-   paper, ink, and one rule line.
---------------------------------------------------------------------------- */
-:root{
-  --paper:#f6f3ec;
-  --paper-2:#efeae0;
-  --ink:#14151a;
-  --ink-2:#3d3f45;
-  /* Contrast-checked against both --paper and the #faf7f0 card surface:
-     muted 4.74:1, poor 4.61:1, moderate 4.78:1, satisfactory 4.78:1, good 4.72:1.
-     All clear the WCAG AA 4.5:1 floor for normal text. */
-  --muted:#6e6c65;
-  --rule:#d8d2c4;
-  --rule-2:#c4bdac;
-  --accent:#c0392b;
-  --accent-ink:#ffffff;
-  --good:#2e7a4f;
-  --ok:#637225;
-  --warn:#8b6508;
-  --bad:#b4501f;
-  --vbad:#b02a1e;
-  --sev:#6d1410;
-  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
-  --sans:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  --shadow:0 1px 0 rgba(20,21,26,.06), 0 8px 24px -18px rgba(20,21,26,.45);
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:var(--paper); color:var(--ink);
-  font-family:var(--sans); font-size:15px; line-height:1.55;
-  -webkit-font-smoothing:antialiased;
-  background-image:linear-gradient(var(--paper-2),var(--paper-2));
-  background-size:100% 1px; background-repeat:no-repeat; background-position:0 0;
-}
-::selection{background:var(--accent);color:var(--accent-ink)}
-button,input,select,textarea{font:inherit;color:inherit}
-button{cursor:pointer;background:none;border:none;padding:0}
-a{color:inherit}
-h1,h2,h3,h4{margin:0;font-weight:600;line-height:1.15}
-.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
-.mono{font-family:var(--mono);font-size:.86em}
-
-/* ---------- shell ---------- */
-.wrap{max-width:1360px;margin:0 auto;padding:0 28px 96px}
-@media(max-width:700px){.wrap{padding:0 16px 80px}}
-
-/* ---------- masthead ---------- */
-.masthead{
-  display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;
-  padding:22px 0 12px;border-bottom:1px solid var(--rule);
-}
-.wordmark{font-family:var(--serif);font-size:26px;letter-spacing:-.02em;font-weight:600}
-.wordmark small{font-family:var(--sans);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-left:10px;font-weight:500}
-.loc{
-  margin-left:auto;display:flex;align-items:center;gap:10px;position:relative;
-}
-.locbox{
-  display:flex;align-items:center;gap:8px;border:1px solid var(--rule-2);
-  background:var(--paper);padding:7px 12px;border-radius:2px;min-width:220px;
-}
-.locbox input{border:none;outline:none;background:none;width:100%;font-size:14px}
-.locbox svg{flex:0 0 auto;opacity:.5}
-.results{
-  position:absolute;top:calc(100% + 6px);right:0;width:340px;background:var(--paper);
-  border:1px solid var(--rule-2);box-shadow:var(--shadow);z-index:40;display:none;max-height:320px;overflow:auto;
-}
-.results.open{display:block}
-.results button{display:block;width:100%;text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);font-size:13.5px}
-.results button:hover{background:var(--paper-2)}
-.results button span{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
-
-/* ---------- the number ---------- */
-.verdict{
-  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:36px;align-items:end;
-  padding:26px 0 18px;border-bottom:1px solid var(--rule);
-}
-@media(max-width:860px){.verdict{grid-template-columns:1fr;gap:14px}}
-.headline{
-  font-family:var(--serif);font-size:clamp(22px,2.4vw,31px);line-height:1.28;
-  letter-spacing:-.015em;max-width:44ch;text-wrap:pretty;
-}
-.headline b{font-weight:600;box-shadow:inset 0 -.5em 0 color-mix(in srgb, var(--accent) 16%, transparent)}
-.big{display:flex;align-items:flex-end;gap:16px}
-.bigval{font-family:var(--serif);font-size:clamp(58px,8vw,96px);line-height:.82;letter-spacing:-.04em}
-.bigmeta{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding-bottom:8px}
-.chiplabel{font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:600}
-.pill{
-  display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
-  letter-spacing:.04em;padding:3px 9px;border:1px solid currentColor;border-radius:2px;
-}
-.pill.dot::before{content:"";width:6px;height:6px;background:currentColor;border-radius:50%}
-.sub{color:var(--muted);font-size:12.5px}
-
-/* ---------- grids ---------- */
-.cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:44px;padding-top:26px}
-@media(max-width:1040px){.cols{grid-template-columns:1fr;gap:32px}}
-section{margin-bottom:34px}
-.sechead{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;border-bottom:1px solid var(--rule);padding-bottom:7px}
-.sechead h2{font-size:12px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--ink-2)}
-.sechead .aside{margin-left:auto;font-size:12px;color:var(--muted)}
-
-/* ---------- now strip ---------- */
-.now{display:grid;gap:0;border-top:1px solid var(--rule)}
-.nowitem{display:grid;grid-template-columns:76px minmax(0,1fr);gap:16px;padding:13px 0;border-bottom:1px solid var(--rule)}
-.nowitem .k{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;padding-top:3px}
-.nowitem .v{font-size:15px;font-weight:500}
-.nowitem .w{font-size:12.5px;color:var(--muted);margin-top:2px}
-
-/* ---------- household rows ---------- */
-.people{border-top:1px solid var(--rule)}
-.prow{padding:12px 0;border-bottom:1px solid var(--rule)}
-.prow-top{display:flex;align-items:baseline;gap:10px}
-.pname{font-weight:600;font-size:14.5px}
-.page{color:var(--muted);font-size:12px}
-.pdose{margin-left:auto;font-family:var(--mono);font-size:13px}
-.pbar{height:5px;background:var(--paper-2);margin:8px 0 6px;position:relative;overflow:hidden;border-radius:1px}
-.pbar i{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.85}
-.pmeta{display:flex;gap:14px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
-.pmeta b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
-.tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--vbad)}
-
-/* ---------- the day ribbon ---------- */
-.ribbon{margin-top:4px}
-.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:96px}
-.hours div{position:relative;border-radius:1px 1px 0 0;min-height:2px;transition:opacity .15s}
-.hours div:hover{outline:1.5px solid var(--ink);outline-offset:1px}
-.hours div.mark::after{
-  content:"";position:absolute;left:50%;transform:translateX(-50%);top:-8px;
-  width:1px;height:6px;background:var(--ink);
-}
-.axis{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:5px;font-family:var(--mono);font-size:9.5px;color:var(--muted)}
-.axis span{text-align:center;overflow:hidden}
-.legend{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:10px;gap:14px;flex-wrap:wrap}
-
-/* ---------- plan ---------- */
-.plan{border:1px solid var(--rule-2);background:linear-gradient(180deg,#fbf9f4,#f6f3ec);padding:22px 24px}
-.plan .opening{font-family:var(--serif);font-size:17.5px;line-height:1.5;margin:0 0 18px;text-wrap:pretty}
-.plan .opening:empty{display:none}
-.planitem{display:grid;grid-template-columns:92px minmax(0,1fr);gap:16px;padding:11px 0;border-top:1px solid var(--rule)}
-.planitem .t{font-family:var(--mono);font-size:11px;color:var(--muted);padding-top:3px}
-.planitem .a{font-weight:500}
-.planitem .y{font-size:12.5px;color:var(--ink-2);margin-top:2px}
-.planitem .eff{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:4px}
-.topflag{
-  display:inline-block;margin-left:8px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;
-  font-weight:700;color:var(--accent);border:1px solid currentColor;padding:1px 5px;vertical-align:2px;
-}
-.onething{border-top:2px solid var(--ink);margin-top:16px;padding-top:14px}
-.onething .lab{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--accent)}
-.onething .a{font-family:var(--serif);font-size:18px;margin:4px 0 4px;line-height:1.3}
-.onething .y{font-size:13px;color:var(--ink-2)}
-.one-meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:8px;letter-spacing:.01em}
-
-/* the figures the opening sentence was written around */
-.figstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);margin:0 0 18px}
-.figcell{background:var(--paper);padding:9px 11px}
-.figcell .fv{font-family:var(--serif);font-size:22px;line-height:1;letter-spacing:-.02em}
-.figcell .fl{font-family:var(--mono);font-size:10px;color:var(--ink-2);margin-top:3px}
-.figcell .fk{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:5px;font-weight:700}
-.planfoot{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--muted);flex-wrap:wrap}
-.streaming{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted)}
-.pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.1s infinite}
-@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
-
-/* ---------- options table ---------- */
-.opts{border-top:1px solid var(--rule)}
-.opt{border-bottom:1px solid var(--rule)}
-.opt summary{
-  display:grid;grid-template-columns:26px minmax(0,1fr) 92px 96px;gap:14px;align-items:center;
-  padding:12px 0;cursor:pointer;list-style:none;
-}
-.opt summary::-webkit-details-marker{display:none}
-.opt summary:hover .otitle{text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}
-.orank{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.otitle{font-weight:500;font-size:14.5px;line-height:1.35}
-.otitle .who{display:block;font-size:11.5px;color:var(--muted);font-weight:400;margin-top:2px}
-.opct{text-align:right;font-family:var(--mono);font-size:14px;font-weight:600}
-.opct small{display:block;font-weight:400;font-size:10px;color:var(--muted)}
-.ocost{text-align:right;font-family:var(--mono);font-size:12.5px;color:var(--ink-2)}
-.ocost small{display:block;font-size:10px;color:var(--muted)}
-.obar{height:3px;background:var(--paper-2);grid-column:2 / -1;margin:-6px 0 0}
-.obar i{display:block;height:100%;background:var(--accent);opacity:.7}
-.obody{padding:4px 0 18px 40px}
-@media(max-width:640px){
-  .opt summary{grid-template-columns:22px minmax(0,1fr) 70px;gap:10px}
-  .ocost{display:none}
-  .obody{padding-left:0}
-}
-.obody h4{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px;font-weight:700}
-.obody p{margin:0 0 8px;font-size:13.5px;color:var(--ink-2);max-width:66ch}
-.obody .src{font-size:11.5px;color:var(--muted);border-left:2px solid var(--rule-2);padding-left:10px;margin-top:10px}
-.personbars{display:grid;gap:5px;margin-top:8px}
-.personbar{display:grid;grid-template-columns:96px minmax(0,1fr) 76px;gap:10px;align-items:center;font-size:12px}
-.track{height:6px;background:var(--paper-2);position:relative;border-radius:1px}
-.track i{position:absolute;left:0;top:0;bottom:0;background:var(--ink-2);opacity:.35}
-.track i.aft{background:var(--accent);opacity:.9}
-.mono-r{font-family:var(--mono);font-size:11.5px;text-align:right}
-
-/* ---------- side panels ---------- */
-.card{border:1px solid var(--rule-2);padding:16px 18px;margin-bottom:18px;background:#faf7f0}
-.card h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);font-weight:700;margin-bottom:10px}
-.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13px}
-.kv dt{color:var(--muted)}
-.kv dd{margin:0;font-family:var(--mono);font-size:12.5px;text-align:right}
-.bar-row{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:9px}
-.bar-row .lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
-.bar-row .track{height:7px}
-.bar-row .track i{background:var(--accent);opacity:.8}
-.note{font-size:12.5px;color:var(--ink-2);border-left:2px solid var(--accent);padding-left:12px;margin-top:10px}
-.tiny{font-size:11px;color:var(--muted);line-height:1.5}
-
-/* ---------- editor ---------- */
-details.editor{border:1px solid var(--rule-2);background:#faf7f0;margin-bottom:22px}
-details.editor summary{padding:12px 16px;cursor:pointer;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--ink-2);display:flex;align-items:center;gap:10px;list-style:none}
-details.editor summary::-webkit-details-marker{display:none}
-details.editor summary::after{content:"edit";margin-left:auto;font-size:10px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--rule-2);padding:2px 7px}
-details.editor[open] summary::after{content:"close"}
-.edbody{padding:4px 16px 18px;border-top:1px solid var(--rule)}
-.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px 18px}
-.field{display:flex;flex-direction:column;gap:4px}
-.field label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
-.field select,.field input{border:1px solid var(--rule-2);background:var(--paper);padding:6px 8px;border-radius:2px;font-size:13px;outline:none}
-.field select:focus,.field input:focus{border-color:var(--ink)}
-.people-edit{display:grid;gap:10px;margin-top:6px}
-.person-edit{display:grid;grid-template-columns:1.3fr 64px 1.1fr auto;gap:8px;align-items:center}
-@media(max-width:640px){.person-edit{grid-template-columns:1fr 64px;}}
-.person-edit input,.person-edit select{border:1px solid var(--rule-2);background:var(--paper);padding:5px 7px;font-size:12.5px;border-radius:2px;width:100%}
-.checks{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:4px}
-.checks label{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2);cursor:pointer}
-.actions{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
-.btn{
-  border:1px solid var(--ink);background:var(--ink);color:var(--paper);
-  padding:9px 16px;font-size:12.5px;font-weight:600;letter-spacing:.04em;border-radius:2px;
-}
-.btn:hover{background:var(--ink-2);border-color:var(--ink-2)}
-.btn.ghost{background:none;color:var(--ink);border-color:var(--rule-2)}
-.btn.ghost:hover{border-color:var(--ink);background:none}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-
-/* ---------- evidence ---------- */
-details.evi{border:1px solid var(--rule-2);background:#faf7f0}
-details.evi summary{
-  padding:12px 14px;cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:3px;
-}
-details.evi summary::-webkit-details-marker{display:none}
-details.evi summary::after{
-  content:"open";position:absolute;right:14px;top:12px;font-size:9.5px;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--muted);border:1px solid var(--rule-2);padding:2px 6px;
-}
-details.evi{position:relative}
-details.evi[open] summary::after{content:"close"}
-.evi-h{font-size:13px;font-weight:600}
-.evi-s{font-size:11px;color:var(--muted);max-width:34ch}
-details.evi[open] summary{border-bottom:1px solid var(--rule)}
-details.evi .factors{padding:4px 14px 14px}
-.factors{display:grid;gap:2px;margin-top:8px}
-.fgroup{border-top:1px solid var(--rule);padding:9px 0}
-.fgroup h5{margin:0 0 5px;font-size:11.5px;font-weight:700;color:var(--ink-2)}
-.frow{display:grid;grid-template-columns:1fr auto;gap:10px;font-size:11.5px;padding:2px 0;color:var(--muted)}
-.frow b{font-family:var(--mono);color:var(--ink);font-weight:500}
-.kind{font-size:9px;letter-spacing:.06em;text-transform:uppercase;border:1px solid currentColor;padding:0 3px;margin-left:5px;opacity:.7}
-.kind.estimate{color:var(--bad)}
-.kind.measured{color:var(--good)}
-.method{font-size:12.5px;color:var(--ink-2);padding-left:18px;margin:6px 0}
-.method li{margin-bottom:5px}
-
-/* ---------- states ---------- */
-.skeleton{background:linear-gradient(90deg,var(--paper-2) 25%,#f7f4ec 50%,var(--paper-2) 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:2px;color:transparent!important}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.err{border:1px solid var(--vbad);color:var(--vbad);padding:12px 16px;font-size:13px;background:#fdf4f2}
-[hidden]{display:none!important}
-.spacer{height:1px}
-
-/* ---------- footer ---------- */
-.colophon{margin-top:50px;padding-top:16px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;align-items:baseline}
-.colophon b{color:var(--ink-2);font-weight:600}
-
-@media print{
-  .masthead .loc, .actions, details.editor, .opt, .colophon, .streaming{display:none!important}
-  body{background:#fff}
-  .plan{border:1px solid #ccc}
-}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-
-/* ---------- keyboard and screen-reader affordances ---------- */
-/* A visible focus ring on every interactive element. The default UA outline
-   is removed in most resets, and this app is mostly driven by controls, so it
-   has to be deliberate. */
-:where(button, a, input, select, summary, [tabindex]):focus-visible{
-  outline:2px solid var(--ink); outline-offset:2px; border-radius:1px;
-}
-:where(button, a, input, select, summary):focus:not(:focus-visible){outline:none}
-.locbox:focus-within{border-color:var(--ink); box-shadow:0 0 0 1px var(--ink)}
-.locbox input:focus{outline:none}
-
-/* Skip link: the page is long, and the first tab stop should let a keyboard
-   or screen-reader user jump past the masthead. */
-.skip{
-  position:absolute; left:-9999px; top:0; z-index:100;
-  background:var(--ink); color:var(--paper); padding:10px 16px; font-size:13px;
-}
-.skip:focus{left:12px; top:12px}
-
-/* Screen-reader-only text for values that are conveyed visually by length. */
-.sr{
-  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
-  overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;
-}
-/* The day ribbon is decorative geometry; the same series is in the table
-   below it for anyone not reading a bar chart. */
-.visually-hidden-table{
-  position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
-}
-@media(prefers-contrast:more){
-  :root{--rule:#a9a294; --rule-2:#8f887a; --muted:#4a4842}
-}
-@media(prefers-reduced-transparency:reduce){
-  .results{background:var(--paper)}
-}
-</style>
+<style>/* Saans. Exposure is not the city's AQI, it is where you are and when, so the page is the household's day. Colour comes from the AQI category, against paper and ink picked for legibility; dark mode is its own palette, not an inversion. Measured WCAG text ratios -- light on #f6f3ec: ink 16.45, ink-2 9.50, muted 4.74, good 4.72, ok 4.78, moderate 4.78, poor 4.61, vbad 5.93, severe 10.78; dark on #14130f: ink 16.04, ink-2 11.65, muted 7.33, good 10.67, ok 11.09, moderate 10.67, poor 8.80, vbad 7.70, severe 8.39. Chart fills are solid accent or ink, so both series clear the 3:1 non-text floor. */
+:root{--paper:#f6f3ec;--paper-2:#efeae0;--ink:#14151a;--ink-2:#3d3f45;--muted:#6e6c65;--rule:#d8d2c4;--rule-2:#c4bdac;--accent:#b4501f;--accent-ink:#fff;--vbad:#b02a1e;--good:#2e7a4f;--serif:"Iowan Old Style",Palatino,Georgia,serif;--sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}:root[data-theme="dark"]{--paper:#14130f;--paper-2:#1e1c17;--ink:#f2eee4;--ink-2:#d3ccbf;--muted:#a9a294;--rule:#3a372f;--rule-2:#555044;--accent:#f0a06a;--accent-ink:#14130f;--vbad:#f08b7d;--good:#7fd6a4}*{box-sizing:border-box}html,body{margin:0;padding:0}html{-webkit-text-size-adjust:100%}body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}::selection{background:var(--accent);color:var(--accent-ink)}button,input,select{font:inherit;color:inherit}button{cursor:pointer;background:none;border:none;padding:0}button:disabled{cursor:not-allowed;opacity:.5}a{color:inherit}h1,h2,h3,h4{margin:0;font-weight:600;line-height:1.15}p{margin:0}.shell{max-width:1100px;margin:0 auto;padding:0 18px 48px}@media(min-width:700px){.shell{padding:0 32px 64px}}.masthead{display:flex;align-items:center;gap:12px;padding:8px 0 7px;border-bottom:1px solid var(--rule);min-height:40px}.wordmark{font-family:var(--serif);font-size:21px;letter-spacing:-.025em;font-weight:600;text-decoration:none;flex:0 0 auto}.mhead{display:flex;align-items:center;gap:9px;margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);min-width:0}.place{font-family:var(--mono);font-size:11px;color:var(--muted);border-bottom:1px dotted var(--rule-2)}.place:hover{color:var(--ink)}.clock,.sep{font-variant-numeric:tabular-nums;flex:0 0 auto}.theme{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);border:1px solid var(--rule-2);padding:4px 7px;border-radius:2px;flex:0 0 auto}.theme:hover{border-color:var(--ink);color:var(--ink)}.locpanel{border-bottom:1px solid var(--rule);padding:10px 0}.locfield{display:flex;gap:10px;align-items:center}.locfield label{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;flex:0 0 auto}.locfield input{flex:1 1 auto;min-width:0;border:1px solid var(--rule-2);background:var(--paper);padding:8px 10px;border-radius:2px;font-size:14px}.results{margin-top:6px;border:1px solid var(--rule);max-height:230px;overflow:auto}.results button{display:block;width:100%;text-align:left;padding:9px 11px;border-bottom:1px solid var(--rule);font-size:13.5px}.results button:hover{background:var(--paper-2)}.results button span{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}.results p{padding:10px 11px;color:var(--muted);font-size:12.5px}.err{border:1px solid var(--vbad);color:var(--vbad);padding:10px 14px;font-size:13px;margin-top:14px}.home{display:grid;gap:0}@media(min-width:900px){.home{grid-template-columns:minmax(0,1.06fr) minmax(0,1fr);column-gap:52px;align-items:start;grid-template-areas:"verdict band" "person band" "cmp trio" "setup trio" "entries entries"}.verdictwrap{grid-area:verdict}.bandsec{grid-area:band}.trio{grid-area:trio}.personwrap{grid-area:person}.cmp{grid-area:cmp}.setupnote{grid-area:setup}.entries{grid-area:entries;margin-top:14px}}.verdictwrap{padding-top:18px}.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}.verdict{font-family:var(--serif);font-weight:400;font-size:clamp(30px,8.8vw,42px);line-height:1.12;letter-spacing:-.022em;max-width:24ch;text-wrap:pretty}@media(min-width:900px){.verdict{font-size:42px}.bandsec{padding-top:20px}.plot{height:104px}.trio{margin-top:14px}.bandleg{font-size:10.5px}}.verdict.loading{color:var(--muted);font-size:clamp(20px,5vw,25px);line-height:1.28}.bandsec{padding:16px 0 2px}.plot{position:relative;height:72px;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;align-items:end;border-bottom:1px solid var(--rule);padding-bottom:1px}.plot .bh{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center;min-width:0}.plot .bh.cook::after{content:"";position:absolute;top:-5px;left:0;right:0;height:3px;background:var(--ink)}.plot .ob{position:absolute;left:0;right:0;bottom:0;min-height:2px;height:calc(var(--o) * 100%);background:var(--accent);border-radius:1px 1px 0 0}.plot .ib{position:relative;width:40%;min-height:2px;min-width:2px;height:calc(var(--i) * 100%);background:var(--ink);border-radius:1px 1px 0 0}.plot .ib::before{content:"";position:absolute;left:-2px;right:-2px;top:-1px;height:1px;background:var(--ink)}.plot .nowline{position:absolute;top:-6px;bottom:0;width:1px;background:var(--ink);z-index:4;pointer-events:none}.plot .nowline::before{content:"";position:absolute;top:-3px;left:-3px;width:7px;height:4px;background:var(--ink)}.bandaxis{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;margin-top:4px;font-family:var(--mono);font-size:9.5px;color:var(--muted)}.bandaxis span{text-align:center;overflow:hidden;font-variant-numeric:tabular-nums}.bandleg{display:flex;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:7px}.bandleg b{color:var(--ink-2);font-weight:500}.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border-top:1px solid var(--rule);padding-top:11px;margin-top:11px}.tcell{min-width:0}.tlab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;white-space:nowrap}.tval{font-family:var(--mono);font-size:clamp(19px,5.2vw,23px);font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1.25;margin-top:1px}.tnote{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:1px}.personwrap{padding-top:14px}.person{font-size:13px;line-height:1.5;color:var(--ink-2);max-width:46ch;border-left:2px solid var(--accent);padding-left:11px}.person b{color:var(--ink);font-weight:600}.cmp{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:11px}.cmp b{color:var(--ink-2);font-weight:500}.setupnote{margin-top:12px;font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap}.setupnote button{color:var(--ink);border-bottom:1px solid var(--rule-2);font-size:12.5px}.entries{margin-top:16px;border-top:1px solid var(--rule)}.entry{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0 1px;border-bottom:1px solid var(--rule);text-align:left}.entry .lbl{font-size:14.5px;font-weight:600}.entry .cnt{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}.entry .chev{font-family:var(--mono);font-size:13px;color:var(--muted)}.entry:hover .lbl{text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}.view{padding-top:14px}.viewhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:9px;border-bottom:1px solid var(--rule);margin-bottom:2px}.back{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.back:hover{color:var(--ink)}.viewhead h2{font-family:var(--serif);font-size:clamp(19px,4.6vw,23px);letter-spacing:-.015em;font-weight:500}.viewhead .aside{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted)}.blk{padding:16px 0;border-bottom:1px solid var(--rule)}.blk:last-child{border-bottom:0}.blkhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}.blkhead h3{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--ink-2)}.blkhead .aside{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:right}.tiny{font-size:11.5px;color:var(--muted);line-height:1.5;max-width:66ch}.prose{font-size:13.5px;line-height:1.55;color:var(--ink-2);max-width:68ch}@media(min-width:900px){.split{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,1fr);column-gap:52px;align-items:start}.split>*{min-width:0}}.opening{font-family:var(--serif);font-size:16.5px;line-height:1.5;letter-spacing:-.008em;margin:2px 0 14px;max-width:46ch;text-wrap:pretty}.subprose{font-size:13px;line-height:1.5;color:var(--ink-2);max-width:60ch;margin:0 0 14px}.figstrip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin-bottom:16px;border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
+@media(min-width:520px){.figstrip{grid-template-columns:repeat(4,minmax(0,1fr))}}.figcell{padding:8px 10px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);min-width:0}.figcell .fv{font-family:var(--mono);font-size:19px;line-height:1.1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.figcell .fl{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:2px}.figcell .fk{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px;font-weight:700}.rail{border-top:1px solid var(--rule)}.railrow{display:grid;grid-template-columns:82px minmax(0,1fr);column-gap:12px;padding:11px 0;border-bottom:1px solid var(--rule)}@media(min-width:700px){.railrow{grid-template-columns:104px minmax(0,1fr);column-gap:20px}}.gutter{position:relative;padding-left:11px;font-family:var(--mono);font-size:10.5px;line-height:1.4;color:var(--muted);padding-top:2px}.railrow.top .gutter::after{content:"";position:absolute;left:0;top:1px;bottom:1px;width:2px;background:var(--accent)}.topword{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:4px}.railrow.is-done .ract,.railrow.is-done .rwhy{color:var(--muted)}.railrow.is-done .gutter::after{background:var(--rule-2)}.railbody{min-width:0}.ract{font-size:14px;line-height:1.42;font-weight:500;text-wrap:pretty}.rwhy{font-size:12.5px;line-height:1.5;color:var(--ink-2);margin-top:3px;max-width:62ch}.rmeta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px}.rfoot{display:flex;align-items:center;gap:12px;margin-top:7px}.done{display:inline-flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--muted);cursor:pointer;min-height:28px}.done input{width:15px;height:15px;accent-color:var(--accent);flex:0 0 auto}.done:hover{color:var(--ink)}.genstatus{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-bottom:10px;min-height:1.2em}.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;animation:pulse 1.1s infinite}@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}.planfoot{display:flex;gap:14px;flex-wrap:wrap;margin-top:13px;padding-top:10px;border-top:1px solid var(--rule);font-size:11px;color:var(--muted)}.btn{border:1px solid var(--ink);background:var(--ink);color:var(--paper);padding:9px 15px;font-size:12.5px;font-weight:600;letter-spacing:.03em;border-radius:2px;min-height:40px}.btn:hover{background:var(--ink-2);border-color:var(--ink-2)}.btn.ghost{background:none;color:var(--ink);border-color:var(--rule-2)}.btn.ghost:hover{border-color:var(--ink)}.school{border-left:2px solid var(--rule-2);padding-left:11px;font-size:13px;color:var(--ink-2);line-height:1.5;max-width:56ch}
+#schoolBlk{margin-top:18px;border-top:1px solid var(--rule);padding-top:12px}.school b{color:var(--ink);font-weight:600}.limit{font-size:12.5px;line-height:1.5;color:var(--muted);max-width:62ch;margin-top:16px}.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 14px;font-size:12.5px;max-width:520px}@media(max-width:600px){.kv{grid-template-columns:1fr;gap:0;max-width:none}.kv dt{font-size:11px;letter-spacing:.02em}.kv dd{text-align:left;margin:0 0 9px;font-size:12.5px}.kv dd:last-child{margin-bottom:0}}.kv dt{color:var(--muted)}.kv dd{margin:0;font-family:var(--mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}.opts{border-top:1px solid var(--rule)}.opt{border-bottom:1px solid var(--rule)}.opt summary{display:grid;grid-template-columns:22px minmax(0,1fr) 62px;gap:10px;align-items:start;padding:11px 0;cursor:pointer;list-style:none}.opt summary::-webkit-details-marker{display:none}.opt summary:hover .otitle{text-decoration:underline;text-decoration-color:var(--rule-2);text-underline-offset:3px}.orank{font-family:var(--mono);font-size:10.5px;color:var(--muted);padding-top:3px;font-variant-numeric:tabular-nums}.otitle{font-size:13.5px;line-height:1.4;font-weight:500;min-width:0}.otitle .who{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}.opct{text-align:right;font-family:var(--mono);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}.opct small{display:block;font-weight:400;font-size:9.5px;color:var(--muted)}@media(min-width:640px){.opt summary{grid-template-columns:26px minmax(0,1fr) 78px 92px;gap:14px}.ocost{display:block;text-align:right;font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}.ocost small{display:block;font-size:9.5px;color:var(--muted)}}.obody{padding:2px 0 15px 32px}@media(max-width:639px){.obody{padding-left:0}}.obody h4{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px;font-weight:700}.obody p{font-size:13px;line-height:1.5;color:var(--ink-2);max-width:66ch}.obody .src{font-size:11px;color:var(--muted);border-left:2px solid var(--rule-2);padding-left:9px;margin-top:9px;line-height:1.45}.personbars{display:grid;gap:4px;margin-top:7px}.personbar{display:grid;grid-template-columns:74px minmax(0,1fr) 52px;gap:9px;align-items:center;font-size:11.5px}.personbar .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.track{height:6px;background:var(--paper-2);position:relative;border-radius:1px;min-width:0}.track i{position:absolute;left:0;top:0;bottom:0;background:var(--ink-2);border-radius:1px}.track i.aft{background:var(--accent)}.mono-r{font-family:var(--mono);font-size:11px;text-align:right;font-variant-numeric:tabular-nums}.dtable{width:100%;border-collapse:collapse;font-size:11.5px}.dtable caption{text-align:left;font-size:11px;color:var(--muted);padding-bottom:6px;line-height:1.45}.dtable th,.dtable td{text-align:left;padding:6px 6px 6px 0;border-bottom:1px solid var(--rule);vertical-align:baseline}.dtable thead th{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--rule-2)}.dtable td.n,.dtable th.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;padding-right:0}.dtable tbody th{font-weight:600;font-size:12px}.dtable .sh{display:block;height:3px;background:var(--paper-2);margin-top:3px;position:relative;min-width:22px}.dtable .sh i{position:absolute;left:0;top:0;bottom:0;background:var(--accent)}.bar-row{display:grid;gap:4px;margin-bottom:8px}.bar-row .lbl{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink-2)}.bar-row .lbl b{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}.bar-row .track i{background:var(--accent)}.bar-row .track{height:6px}.note{font-size:12px;color:var(--ink-2);border-left:2px solid var(--accent);padding-left:10px;margin-top:9px;line-height:1.5}details.evi{border:1px solid var(--rule-2);position:relative}details.evi summary{padding:11px 12px;cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}details.evi summary::-webkit-details-marker{display:none}details.evi summary::after{content:"open";position:absolute;right:12px;top:11px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--rule-2);padding:1px 5px}details.evi[open] summary::after{content:"close"}details.evi[open] summary{border-bottom:1px solid var(--rule)}.evi-h{font-size:12.5px;font-weight:600}.evi-s{font-size:10.5px;color:var(--muted);max-width:40ch;line-height:1.4}.factors{padding:2px 12px 12px}.fgroup{border-top:1px solid var(--rule);padding:8px 0}.fgroup:first-child{border-top:0}.fgroup h5{margin:0 0 4px;font-size:11px;font-weight:700;color:var(--ink-2)}.frow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;font-size:11px;padding:1.5px 0;color:var(--muted)}.frow b{font-family:var(--mono);color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}.kind{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;border:1px solid currentColor;padding:0 3px;margin-left:5px}.kind.estimate{color:var(--vbad)}.kind.measured{color:var(--good)}.method{font-size:12px;color:var(--ink-2);padding-left:16px;margin:5px 0;line-height:1.5}.method li{margin-bottom:4px}details.editor{border:1px solid var(--rule-2)}details.editor summary{padding:11px 12px;cursor:pointer;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--ink-2);display:flex;align-items:center;gap:10px;list-style:none}details.editor summary::-webkit-details-marker{display:none}details.editor summary::after{content:"edit";margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--rule-2);padding:1px 5px}details.editor[open] summary::after{content:"close"}.edbody{padding:2px 12px 14px;border-top:1px solid var(--rule)}.step{padding:12px 0;border-bottom:1px solid var(--rule)}.step:last-of-type{border-bottom:0}.steph{font-size:12.5px;font-weight:600;margin-bottom:8px}.steph em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--muted);margin-right:7px}.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{display:flex;flex-direction:column;gap:1px;align-items:flex-start;border:1px solid var(--rule-2);padding:7px 11px;border-radius:2px;font-size:12.5px;font-weight:600;min-width:0}.chip small{font-family:var(--mono);font-size:9.5px;color:var(--muted);font-weight:400}.chip[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}.chip:hover{border-color:var(--ink)}.pedit{display:grid;grid-template-columns:minmax(0,1fr) 74px;gap:8px;margin-top:10px;padding:10px;border:1px solid var(--rule);background:var(--paper-2)}@media(min-width:640px){.pedit{grid-template-columns:minmax(0,1fr) 74px minmax(0,1fr) auto}}.pedit label{display:block;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}.pedit input,.pedit select{width:100%;min-width:0;border:1px solid var(--rule-2);background:var(--paper);padding:6px 8px;border-radius:2px;font-size:13px}.pedit .box{display:flex;flex-direction:column;gap:5px;justify-content:flex-end}.pedit .box label{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0;text-transform:none;color:var(--ink-2);font-weight:400;margin:0}.pedit .box input{width:14px}.pedit .rm{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--vbad);border:1px solid currentColor;padding:5px 8px;border-radius:2px;align-self:start}.checks{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-top:8px}.checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;min-height:26px}.checks input{width:15px;height:15px;accent-color:var(--accent)}.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(min-width:560px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.cards.five{grid-template-columns:repeat(5,minmax(0,1fr))}}.rcard{position:relative;display:block;cursor:pointer;min-width:0}.rcard input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}.rcbody{display:flex;flex-direction:column;gap:2px;border:1px solid var(--rule-2);border-radius:2px;padding:10px;min-height:56px;font-size:12.5px;font-weight:600}.rcbody small{font-size:10px;color:var(--muted);font-weight:400;line-height:1.35}.rcard input:checked + .rcbody{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}.rcard:hover .rcbody{border-color:var(--ink)}details.more{margin-top:11px;border-top:1px solid var(--rule);padding-top:9px}details.more summary{cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);list-style:none;display:flex;align-items:center;gap:8px}details.more summary::-webkit-details-marker{display:none}details.more summary::after{content:"+";font-size:13px}details.more[open] summary::after{content:"−"}.egrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:10px}@media(min-width:640px){.egrid{grid-template-columns:repeat(4,minmax(0,1fr))}}.field{display:flex;flex-direction:column;gap:3px;min-width:0}.field label{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}.field select,.field input{border:1px solid var(--rule-2);background:var(--paper);padding:6px 7px;border-radius:2px;font-size:12.5px;width:100%;min-width:0}.actions{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}#saveNote{font-family:var(--mono);font-size:10.5px;color:var(--muted)}.colophon{margin-top:24px;padding-top:11px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;gap:10px 18px;flex-wrap:wrap;line-height:1.5}.colophon b{color:var(--ink-2);font-weight:500}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:1px}.skip{position:absolute;left:-9999px;top:0;z-index:100;background:var(--ink);color:var(--paper);padding:10px 16px;font-size:13px;text-decoration:none}.skip:focus{left:12px;top:12px}.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}main:focus{outline:none}[hidden]{display:none!important}@media(prefers-contrast:more){:root{--rule:#8f887a;--rule-2:#6f685c;--muted:#4a4842}:root[data-theme="dark"]{--rule:#7d7669;--rule-2:#a29a8b;--muted:#d8d1c4}.track{background:var(--rule)}.bar-row .track,.dtable .sh{background:var(--rule)}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}}
+@media(min-width:900px){.verdict{font-size:42px}.plot{height:104px}.bandsec{padding-top:20px}.trio{margin-top:0;padding-top:14px}.personwrap{padding-top:18px}.entries{margin-top:18px}}</style>
 </head>
 <body>
-<a class="skip" href="#main">Skip to the numbers</a>
-<div class="wrap">
-
-  <header class="masthead">
-    <div class="wordmark">Saans<small>air, for a household</small></div>
-    <div class="loc">
-      <div class="locbox">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-        <input id="q" placeholder="Search a city or district" autocomplete="off"
-               aria-label="Search a city or district"
-               role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
-      </div>
-      <div class="results" id="results" role="listbox" aria-label="Matching places"></div>
-    </div>
-  </header>
-
-  <div id="err" class="err" role="alert" hidden></div>
-
-  <main id="main">
-  <div class="verdict">
-    <div>
-      <div class="chiplabel" style="color:var(--muted);margin-bottom:9px" id="where">Delhi, India</div>
-      <h1 class="headline" id="headline" aria-live="polite"></h1>
-    </div>
-    <div class="big">
-      <div class="bigval num" id="aqi">—</div>
-      <div class="bigmeta">
-        <span class="chiplabel" id="aqilabel" style="color:var(--accent)">loading</span>
-        <span class="pill dot" id="grap">GRAP</span>
-        <span class="sub" id="whonote">vs WHO guideline</span>
-      </div>
-    </div>
-  </div>
-
-  <div class="cols">
-    <!-- ============ main column ============ -->
-    <div>
-      <details class="editor">
-        <summary>Your household</summary>
-        <div class="edbody">
-          <div class="egrid">
-            <div class="field"><label for="f_kind">Home</label>
-              <select id="f_kind">
-                <option value="apartment">Apartment / flat</option>
-                <option value="independent">Independent house</option>
-                <option value="single_room">Single room</option>
-              </select></div>
-            <div class="field"><label for="f_fuel">Cooking fuel</label>
-              <select id="f_fuel">
-                <option value="lpg">LPG cylinder</option>
-                <option value="png">Piped gas</option>
-                <option value="electric">Electric / induction</option>
-                <option value="biomass">Wood, dung or crop waste</option>
-                <option value="kerosene">Kerosene</option>
-              </select></div>
-            <div class="field"><label for="f_exh">Kitchen extraction</label>
-              <select id="f_exh">
-                <option value="none">None</option>
-                <option value="window">Window only</option>
-                <option value="fan">Exhaust fan</option>
-                <option value="chimney">Chimney to outdoors</option>
-              </select></div>
-            <div class="field"><label for="f_clean">Air cleaner</label>
-              <select id="f_clean">
-                <option value="none">None</option>
-                <option value="box_fan">Box-fan filter</option>
-                <option value="hepa_small">Small HEPA</option>
-                <option value="hepa_medium">Larger HEPA</option>
-              </select></div>
-            <div class="field"><label for="f_mode">Usual commute</label>
-              <select id="f_mode">
-                <option value="two_wheeler">Two-wheeler</option>
-                <option value="car_ac">Car, air-conditioned</option>
-                <option value="car_open">Car, windows open</option>
-                <option value="auto">Auto-rickshaw</option>
-                <option value="bus">Bus</option>
-                <option value="metro">Metro / train</option>
-                <option value="cycle">Cycle</option>
-                <option value="walk">Walk</option>
-                <option value="wfh">Work from home</option>
-              </select></div>
-            <div class="field"><label for="f_km">Commute, km a day</label>
-              <input id="f_km" type="number" min="0" max="200" step="1" value="18"></div>
-            <div class="field"><label for="f_mask">Mask outside</label>
-              <select id="f_mask">
-                <option value="none">None</option>
-                <option value="cloth">Cloth</option>
-                <option value="surgical">Surgical</option>
-                <option value="kn95">KN95 / KF94</option>
-                <option value="n95">N95, fitted</option>
-              </select></div>
-            <div class="field"><label for="f_cookh">Cooking, minutes a day</label>
-              <input id="f_cookh" type="number" min="0" max="480" step="10" value="90"></div>
-          </div>
-          <div class="field" style="margin-top:14px"><label>Who lives here</label>
-            <div class="people-edit" id="peopleEdit"></div>
-          </div>
-          <div class="checks">
-            <label><input type="checkbox" id="f_coil"> Mosquito coils at night</label>
-            <label><input type="checkbox" id="f_incense"> Incense daily</label>
-            <label><input type="checkbox" id="f_sweep" checked> Dry sweeping</label>
-            <label><input type="checkbox" id="f_exercise" checked> Outdoor exercise</label>
-            <label><input type="checkbox" id="f_office" checked> Leave home for work/school</label>
-          </div>
-          <div class="field" style="margin-top:14px;max-width:260px"><label for="f_burn">Waste burned in the yard, kg a week</label>
-            <input id="f_burn" type="number" min="0" max="50" step="0.5" value="0"></div>
-          <div class="actions">
-            <button class="btn" id="apply">Recompute</button>
-            <button class="btn ghost" id="planBtn">Write today's plan</button>
-            <span class="tiny" id="editnote">Numbers update from measured exposure factors, not vibes.</span>
-          </div>
-        </div>
-      </details>
-
-      <section>
-        <div class="sechead"><h2>Right now</h2><span class="aside" id="stamp"></span></div>
-        <div class="now" id="now"></div>
-      </section>
-
-      <section>
-        <div class="sechead"><h2>Today's plan</h2><span class="aside" id="planby"></span></div>
-        <div class="plan" id="plan">
-          <p class="opening" style="color:var(--muted)">Press “Write today's plan” to have a local model turn this household's numbers into a plan for the day. Every figure in it comes from the calculation below.</p>
-          <div class="planfoot"><span class="tiny">Runs on your machine. Nothing about your family leaves the device except a latitude and longitude for the weather.</span></div>
-        </div>
-      </section>
-
-      <section>
-        <div class="sechead"><h2>What actually helps, in order</h2><span class="aside">ranked by dose removed per rupee</span></div>
-      <div class="opts" id="opts" aria-live="polite"></div>
-      </section>
-    </div>
-
-    <!-- ============ side column ============ -->
-    <div>
-      <section>
-        <div class="sechead"><h2>Your day, by hour</h2></div>
-        <div class="ribbon">
-          <div class="hours" id="hours" role="img" aria-labelledby="hoursDesc"></div>
-          <p id="hoursDesc" class="sr"></p>
-          <div class="axis" id="axis" aria-hidden="true"></div>
-          <div class="legend">
-            <span id="legpeak"></span>
-            <span id="leglow"></span>
-          </div>
-          <p class="tiny" style="margin-top:10px">Mean concentration the household actually breathes, hour by hour, weighted by who is where. The morning inversion and the evening peak are the two spikes; the afternoon trough is your ventilation window.</p>
-        </div>
-      </section>
-
-      <section>
-        <div class="sechead"><h2>Who is carrying it</h2></div>
-        <div class="people" id="people"></div>
-        <p class="tiny" style="margin-top:10px">“Share” weights each person's inhaled dose by sensitivity — age, asthma, heart or lung disease, pregnancy. It shows who to protect first, not who will get ill.</p>
-      </section>
-
-      <section>
-        <div class="sechead"><h2>Your air, by source</h2></div>
-        <div class="card" id="sources"></div>
-      </section>
-
-      <section>
-        <div class="sechead"><h2>What you put into it</h2></div>
-        <div class="card" id="emissions"></div>
-      </section>
-
-      <section>
-        <div class="sechead"><h2>Where the numbers come from</h2></div>
-        <details class="evi">
-          <summary>
-            <span class="evi-h">The full model, with sources</span>
-            <span class="evi-s" id="eviCount">every constant, and whether it is measured, standard, or a declared estimate</span>
-          </summary>
-          <div class="factors" id="factors"></div>
-        </details>
-      </section>
-    </div>
-  </div>
-  </main>
-  <div class="colophon">
-    <span><b>Saans</b> runs locally. Air quality from Open-Meteo / CAMS; AQI from CPCB breakpoints; health thresholds from WHO 2021.</span>
-    <span id="modelsrc"></span>
-    <span style="margin-left:auto">Not medical advice.</span>
-  </div>
+<a class="skip" href="#main">Skip to the answer</a>
+<div class="shell">
+<header class="masthead">
+<a class="wordmark" href="#main">Saans</a>
+<div class="mhead">
+<button class="place" id="placeBtn" type="button" aria-expanded="false" aria-controls="locpanel"><span id="place">Delhi</span></button>
+<span class="sep" aria-hidden="true">·</span>
+<span class="clock" id="clock">—</span>
+<button class="theme" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to dark appearance">Dark</button>
+</div>
+</header>
+<div class="locpanel" id="locpanel" hidden>
+<div class="locfield">
+<label for="q">Place</label>
+<input id="q" type="search" placeholder="Search a city or district" autocomplete="off"
+role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+</div>
+<div class="results" id="results" role="listbox" aria-label="Matching places"></div>
+</div>
+<div id="err" class="err" role="alert" hidden></div>
+<main id="main" tabindex="-1">
+<!-- ================= LEVEL 1: one screen ================= -->
+<section class="home" id="view-home" aria-label="Today">
+<div class="verdictwrap" id="answer" tabindex="-1">
+<p class="eyebrow" id="eyebrow">Saans</p>
+<h1 class="verdict loading" id="verdict" aria-live="polite">Reading the air over your street…</h1>
+</div>
+<section class="bandsec" aria-label="The next 24 hours">
+<div class="plot" id="plot" role="img" aria-labelledby="bandDesc">
+<div class="nowline" id="nowline" style="left:50%"></div>
+</div>
+<p id="bandDesc" class="sr"></p>
+<div class="bandaxis" id="bandaxis" aria-hidden="true"></div>
+<p class="bandleg" id="bandleg"></p>
+</section>
+<div class="trio" aria-live="polite" aria-atomic="true" aria-label="Outdoor, indoor and kitchen concentrations">
+<div class="tcell"><div class="tlab">outside</div><div class="tval" id="t_out">—</div><div class="tnote">µg/m³</div></div>
+<div class="tcell"><div class="tlab">inside</div><div class="tval" id="t_in">—</div><div class="tnote">µg/m³</div></div>
+<div class="tcell"><div class="tlab">kitchen</div><div class="tval" id="t_kit">—</div><div class="tnote">µg/m³ at the stove</div></div>
+</div>
+<div class="personwrap"><p class="person" id="person">—</p></div>
+<p class="cmp" id="cmp" hidden></p>
+<p class="setupnote" id="setupnote" hidden>
+<span>One minute, once.</span>
+<button type="button" id="setupBtn">Set up the household</button>
+</p>
+<nav class="entries" aria-label="More detail">
+<button class="entry" id="planEntry" type="button">
+<span class="lbl">Today’s moves</span>
+<span class="cnt" id="planCount"></span>
+<span class="chev" aria-hidden="true">›</span>
+</button>
+<button class="entry" id="eviEntry" type="button">
+<span class="lbl">The numbers behind this</span>
+<span class="chev" aria-hidden="true">›</span>
+</button>
+</nav>
+</section>
+<!-- ================= LEVEL 2: the plan ================= -->
+<section class="view" id="view-plan" aria-label="Today’s plan" hidden>
+<div class="viewhead">
+<button class="back" id="back1" type="button">← The answer</button>
+<h2 tabindex="-1" id="planHead">Today’s moves</h2>
+<span class="aside" id="planby"></span>
+</div>
+<div class="blk">
+<p class="genstatus" id="genstatus" aria-live="polite"></p>
+<div id="plan">
+<p class="prose">The plan comes from this household’s numbers. Every action and figure is computed here; a local model supplies only the wording.</p>
+</div>
 </div>
 
+<div class="blk" id="schoolBlk" hidden>
+<div class="blkhead"><h3>School</h3><span class="aside" id="schoolSrc"></span></div>
+<p class="school" id="school"></p>
+</div>
+<div class="blk">
+<button class="btn ghost" id="replan" type="button">Write it again</button>
+</div>
+</section>
+<!-- ================= LEVEL 3: the numbers ================= -->
+<section class="view" id="view-numbers" aria-label="The numbers behind this" hidden>
+<div class="viewhead">
+<button class="back" id="back2" type="button">← The answer</button>
+<h2 tabindex="-1" id="numHead">The numbers behind this</h2>
+<span class="aside" id="numstamp"></span>
+</div>
+<div class="blk">
+<div class="blkhead"><h3>Today, in the city’s terms</h3><span class="aside" id="numlabel"></span></div>
+<dl class="kv" id="kv"></dl>
+</div>
+<div class="blk">
+<div class="blkhead"><h3>Who is carrying it</h3><span class="aside">share weights dose by sensitivity</span></div>
+<table class="dtable" id="ptable">
+<caption>Daily inhaled dose by person. Breathing is the mean concentration they sit in, weighted by their own day. Share weights that by sensitivity, so it shows who to protect first — not who will become ill.</caption>
+<thead><tr><th scope="col">Person</th><th scope="col" class="n">Age</th><th scope="col" class="n">Breathing</th><th scope="col" class="n">Inhaled/day</th><th scope="col" class="n">Cig-eq</th><th scope="col" class="n">Share</th></tr></thead>
+<tbody id="pbody"></tbody>
+</table>
+</div>
+<div class="blk">
+<div class="blkhead"><h3>What actually helps, in order</h3><span class="aside">by dose removed per rupee</span></div>
+<div class="opts" id="opts" aria-live="polite"></div>
+</div>
+<div class="blk split">
+<div>
+<div class="blkhead"><h3>Where the air comes from</h3><span class="aside" id="profsrc"></span></div>
+<div id="sources"></div>
+</div>
+<div>
+<div class="blkhead"><h3>What the household puts in</h3></div>
+<div id="emissions"></div>
+</div>
+</div>
+<div class="blk">
+<div class="blkhead"><h3>Your household</h3><span class="aside">stored on this device, entered once</span></div>
+<details class="editor" id="edDetails">
+<summary>Who lives here, how you cook, how you get about</summary>
+<div class="edbody" id="edbody">
+<div class="step">
+<div class="steph"><em>1</em>Who lives here</div>
+<div class="chips" id="chips"></div>
+<div class="pedit" id="pedit" hidden></div>
+</div>
+<div class="step">
+<div class="steph"><em>2</em>How you cook</div>
+<div class="cards" id="fuelCards"></div>
+</div>
+<div class="step">
+<div class="steph"><em>3</em>Your commute</div>
+<div class="cards five" id="modeCards"></div>
+</div>
+<details class="more">
+<summary>More detail</summary>
+<div class="egrid">
+<div class="field"><label for="f_kind">Home</label>
+<select id="f_kind"></select></div>
+<div class="field"><label for="f_exh">Kitchen extraction</label>
+<select id="f_exh"></select></div>
+<div class="field"><label for="f_clean">Air cleaner</label>
+<select id="f_clean"></select></div>
+<div class="field"><label for="f_fuel">Cooking fuel</label>
+<select id="f_fuel"></select></div>
+<div class="field"><label for="f_mask">Mask outside</label>
+<select id="f_mask"></select></div>
+<div class="field"><label for="f_km">Commute, km a day</label>
+<input id="f_km" type="number" min="0" max="200" step="1" value="18"></div>
+<div class="field"><label for="f_cookh">Cooking, minutes a day</label>
+<input id="f_cookh" type="number" min="0" max="480" step="10" value="90"></div>
+<div class="field"><label for="f_cook1">Cooking hour, morning</label>
+<input id="f_cook1" type="number" min="0" max="23" step="1" value="8"></div>
+<div class="field"><label for="f_cook2">Cooking hour, evening</label>
+<input id="f_cook2" type="number" min="0" max="23" step="1" value="20"></div>
+<div class="field"><label for="f_burn">Waste burned, kg a week</label>
+<input id="f_burn" type="number" min="0" max="50" step="0.5" value="0"></div>
+<div class="field"><label for="f_mode">Usual commute</label>
+<select id="f_mode"></select></div>
+</div>
+<div class="checks">
+<label><input type="checkbox" id="f_coil"> Mosquito coils at night</label>
+<label><input type="checkbox" id="f_incense"> Incense daily</label>
+<label><input type="checkbox" id="f_sweep" checked> Dry sweeping</label>
+<label><input type="checkbox" id="f_exercise" checked> Outdoor exercise</label>
+<label><input type="checkbox" id="f_office" checked> Leave home for work or school</label>
+</div>
+</details>
+<div class="actions">
+<button class="btn" id="edSave" type="button">Save and recompute</button>
+<span id="saveNote" aria-live="polite"></span>
+</div>
+</div>
+</details>
+</div>
+<div class="blk">
+<div class="blkhead"><h3>Where the numbers come from</h3></div>
+<details class="evi" id="eviDetails">
+<summary>
+<span class="evi-h">The full model, with sources</span>
+<span class="evi-s" id="eviCount">every constant, and whether it is measured, standard, or a declared estimate</span>
+</summary>
+<div class="factors" id="factors"><p class="tiny">Opening…</p></div>
+</details>
+</div>
+</section>
+</main>
+<div class="colophon">
+<span><b>Saans</b> runs on this device. Air quality: Open-Meteo / CAMS. AQI: CPCB. Health thresholds: WHO 2021.</span>
+<span id="modelsrc"></span>
+<span>Not medical advice.</span>
+</div>
+</div>
+<noscript><p style="padding:16px">Saans needs JavaScript: the household’s numbers are computed on this device.</p></noscript>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
 const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x !== undefined) n.textContent = typeof x === "string" ? U(x) : x; return n };
 const fmt = (v, d = 0) => (v === null || v === undefined || Number.isNaN(v)) ? "—" : Number(v).toLocaleString("en-IN", { maximumFractionDigits: d, minimumFractionDigits: d });
-// The engine speaks in plain ASCII ("ug/m3") so it can be read in a terminal.
-// The screen should speak properly, so units are converted at the last moment.
+//The engine speaks ASCII (ug/m3) so it reads in a terminal; units are converted at the last moment.
 const U = s => String(s).replace(/ug\/m3/g, "µg/m³").replace(/ug\/m³/g, "µg/m³");
-const txt = (node, value) => { node.textContent = U(value); };
-const inr = v => v === 0 ? "free" : (v < 0 ? "saves Rs " + fmt(-v) : "Rs " + fmt(v));
-
-const COLORS = { good:"#2e7a4f", satisfactory:"#637225", moderate:"#8b6508", poor:"#b4501f", very_poor:"#b02a1e", severe:"#6d1410" };
-
-// The household the page starts with: a Delhi flat, a two-wheeler commute, a
-// school-age child and an older parent. Chosen because it is the most common
-// shape of a household in the air this app is for, not because it is average.
-let state = {
-  location: { lat:28.6139, lon:77.2090, label:"Delhi, India", city:"Delhi", country_code:"IN", tz:"Asia/Kolkata" },
-  home:    { kind:"apartment", cooking_fuel:"lpg", kitchen_exhaust:"none", cleaner:"none", mixer:"none", windows_day:"mixed", windows_night:"closed", occupants:4 },
-  habits:  { incense_per_day:0, mosquito_coil:false, dry_sweeping:true, waste_burning_kg_week:0, outdoor_exercise:true, exercise_hour:7, cook_hours:[8,20], cook_minutes:90 },
-  transport:{ mode:"two_wheeler", km_per_day:18, mask:"none" },
-  people:  [
-    { name:"You", age:34, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false },
-    { name:"Partner", age:33, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false },
-    { name:"Child", age:7, conditions:[], commutes:false, cooks:false, exercises:true, pregnant:false },
-    { name:"Amma", age:68, conditions:["heart"], commutes:false, cooks:false, exercises:false, pregnant:false }
-  ],
-  office:true, tone:"practical"
+const pad2 = n => String(n).padStart(2, "0");
+const inr = v => v === 0 ? "free" : (v < 0 ? "saves Rs " + fmt(-v) : "Rs " + fmt(v)); /* storage that may not exist: private mode and quota both throw, so memory features go quiet while the core keeps working */
+const store = {
+get(k, f) { try { const v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } },
+set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 };
-let last = null;
+const HK = "saans.household.v1", THEME_KEY = "saans.theme", HIST_KEY = "saans.history.v1"; /* per-mode palette: the accent is re-derived, not inverted, to hold 4.5:1 */
+const ACCENT = {
+light: { good:"#2e7a4f", satisfactory:"#637225", moderate:"#8b6508", poor:"#b4501f", very_poor:"#b02a1e", severe:"#6d1410" },
+dark:  { good:"#7fd6a4", satisfactory:"#c3cf7a", moderate:"#e6c05a", poor:"#f0a06a", very_poor:"#f08b7d", severe:"#dba096" }
+};
+let lastSlug = "poor";
+const mq = q => { try { return matchMedia(q) } catch (e) { return { matches:false, addEventListener(){} } } };
+function mode(){ const t = store.get(THEME_KEY, null); return (t === "dark" || t === "light") ? t : (mq("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+function paintTheme(){
+const m = mode();
+document.documentElement.dataset.theme = m;
+const set = ACCENT[m] || ACCENT.light;
+document.documentElement.style.setProperty("--accent", set[lastSlug] || set.poor);
+const b = $("#themeBtn");
+b.textContent = m === "dark" ? "Light" : "Dark";
+b.setAttribute("aria-pressed", String(m === "dark"));
+b.setAttribute("aria-label", m === "dark" ? "Switch to light appearance" : "Switch to dark appearance");
+}
+$("#themeBtn").addEventListener("click", () => { store.set(THEME_KEY, mode() === "dark" ? "light" : "dark"); paintTheme(); });
+mq("(prefers-color-scheme: dark)").addEventListener("change", () => { if (store.get(THEME_KEY, null) === null) paintTheme(); }); /* the household: a Delhi flat, a two-wheeler commute, a school-age child and an older parent — the commonest shape of household in this air */
+const DEFAULTS = {
+location:{ lat:28.6139, lon:77.2090, label:"Delhi, India", city:"Delhi", country_code:"IN", tz:"Asia/Kolkata" },
+home:{ kind:"apartment", cooking_fuel:"lpg", kitchen_exhaust:"none", cleaner:"none", mixer:"none", windows_day:"mixed", windows_night:"closed", occupants:4 },
+habits:{ incense_per_day:0, mosquito_coil:false, dry_sweeping:true, waste_burning_kg_week:0, outdoor_exercise:true, exercise_hour:7, cook_hours:[8,20], cook_minutes:90 },
+transport:{ mode:"two_wheeler", km_per_day:18, mask:"none" },
+people:[
+{ name:"You", age:34, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false },
+{ name:"Partner", age:33, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false },
+{ name:"Child", age:7, conditions:[], commutes:false, cooks:false, exercises:true, pregnant:false },
+{ name:"Amma", age:68, conditions:["heart"], commutes:false, cooks:true, exercises:false, pregnant:false }
+],
+office:true, tone:"practical"
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+function mergeSaved(saved){
+const s = clone(DEFAULTS);
+if (saved && typeof saved === "object") {
+["location","home","habits","transport"].forEach(k => { if (saved[k] && typeof saved[k] === "object") Object.assign(s[k], saved[k]); });
+if (Array.isArray(saved.people) && saved.people.length) s.people = saved.people;
+if (typeof saved.office === "boolean") s.office = saved.office;
+}
+if (!Array.isArray(s.habits.cook_hours) || s.habits.cook_hours.length < 2) s.habits.cook_hours = [8, 20];
+s.home.occupants = s.people.length;
+return s;
+}
+let state = mergeSaved(store.get(HK, null));
+const saveHousehold = () => { state.home.occupants = state.people.length; return store.set(HK, state); };
+let last = null, nowHour = null, peopleSel = 0, ctrl = null, planStarted = false; /* helpers */
+const stampTime = stamp => { const m = /(\d{2}):(\d{2})/.exec(String(stamp || "")); return m ? m[1] + ":" + m[2] : "—" };
+const hourOf = stamp => { const m = /(\d{1,2}):(\d{2})/.exec(String(stamp || "")); return m ? Number(m[1]) : null };
+const isoDate = (d = new Date()) => d.toISOString().slice(0, 10);
+const doneKey = k => "done:" + isoDate() + ":" + k;
+const slugKey = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "move"; /* verdict from elevated_now / next_trough / next_peak — never worst_hour (an extremum over 0–23, often past). */
+function verdictCopy(o){
+const aqi = Number(o.aqi) || 0, hour = (typeof o.nowHour === "number") ? o.nowHour : null;
+const trough = o.next_trough || {}, peak = o.next_peak || {};
+/* hour null = the cleanest point is the reading in hand; don't print "00". */
+const when = (trough.hour === null || trough.hour === undefined) ? "now" : pad2(trough.hour) + ":00";
+const ahead = (peak.hour !== undefined && peak.hour !== null && hour !== null) ? (((peak.hour - hour) % 24) + 24) % 24 : 99;
+const climb = (ahead > 0 && ahead <= 3) ? " It climbs again by " + pad2(peak.hour) + ":00." : "";
+if (aqi >= 201 && o.elevated_now) return "Keep them shut until about " + when + "." + climb;
+if (aqi >= 201 && when === "now") return "Open up now, while it is at its cleanest." + climb;
+if (aqi >= 201) return "Open up at " + when + "." + climb;
+return "A good day to open up." + climb;
+}
+window.__verdict = verdictCopy; /* day band */
+function cookingHours(b){
+const set = new Set();
+((b.household && b.household.people) || b.people || []).forEach(p => (p.blocks || []).forEach(x => { if (x.cooking && typeof x.start === "number") set.add(Math.floor(x.start) % 24); }));
+if (!set.size) (state.habits.cook_hours || []).forEach(h => set.add(Number(h) % 24));
+return Array.from(set).filter(Number.isFinite).sort((a, b) => a - b);
+}
+function renderBand(d){
+const b = d.brief;
+const out = (d.hourly || []).slice().sort((x, y) => x.hour - y.hour);
+const inside = ((b.household && b.household.hourly) || []).slice().sort((x, y) => x.hour - y.hour);
+const plot = $("#plot"), cooks = cookingHours(b);
+plot.querySelectorAll(".bh").forEach(n => n.remove());
+const max = Math.max(1, ...out.map(h => h.pm25 || 0));
+out.forEach(h => {
+const col = el("div", "bh");
+if (cooks.indexOf(h.hour) !== -1) col.classList.add("cook");
+col.style.setProperty("--o", Math.max(0.02, (h.pm25 || 0) / max).toFixed(3));
+col.appendChild(el("i", "ob"));
+const inn = inside.find(x => x.hour === h.hour);
+if (inn) { const ib = el("i", "ib"); ib.style.setProperty("--i", Math.max(0.01, (inn.pm25 || 0) / max).toFixed(3)); col.appendChild(ib); }
+plot.appendChild(col);
+});
+$("#nowline").style.left = ((((nowHour === null ? 0 : nowHour) + 0.5) / 24) * 100).toFixed(2) + "%";
+const ax = $("#bandaxis");
+ax.textContent = "";
+for (let i = 0; i < 24; i++) ax.appendChild(el("span", null, i % 6 === 0 ? pad2(i) : "")); const trough = b.next_trough || {}, peak = b.next_peak || {};
+const leg = $("#bandleg");
+leg.textContent = "";
+const lowWhen = (trough.hour === null || trough.hour === undefined) ? "now" : pad2(trough.hour) + ":00";
+const peakWhen = (peak.hour === null || peak.hour === undefined) ? "—" : pad2(peak.hour) + ":00";
+[[ "▲ now " + (nowHour === null ? "—" : pad2(nowHour) + ":00") ],
+[ "low " + lowWhen + " · " + fmt(trough.pm25) ],
+[ "peak " + peakWhen + " · " + fmt(peak.pm25) ]
+].forEach(([t]) => leg.appendChild(el("span", null, t)));
+if (cooks.length) leg.appendChild(el("span", null, "stove " + cooks.map(h => pad2(h) + ":00").join(" & "))); //geometry is decorative; assistive tech gets the same series in words
+const parts = ["Outdoor fine particles by hour, micrograms per cubic metre: " +
+out.map(h => pad2(h.hour) + ":00 " + fmt(h.pm25)).join(", ") + "."];
+if (inside.length) parts.push("Indoor-weighted household exposure: " +
+inside.filter((x, i) => i % 3 === 0).map(h => pad2(h.hour) + ":00 " + fmt(h.pm25)).join(", ") + ".");
+parts.push("Low point " + lowWhen + " at " + fmt(trough.pm25) + "; next peak " + peakWhen + " at " + fmt(peak.pm25) + ".");
+if (nowHour !== null) parts.push("Current hour " + pad2(nowHour) + ".");
+if (cooks.length) parts.push("The stove is lit around " + cooks.map(h => pad2(h) + ":00").join(" and ") + ".");
+$("#bandDesc").textContent = U(parts.join(" "));
+}
 
-/* ---------------- location search ---------------- */
+/* who is carrying it */
+function reasonFor(p){
+const cooks = (p.blocks || []).filter(x => x.cooking).length;
+if (cooks >= 2) return "at the stove for both meals";
+if (cooks === 1) return "at the stove for one meal";
+const bp = p.by_place || {}, entries = Object.entries(bp).sort((a, b) => b[1] - a[1]);
+const total = entries.reduce((a, e) => a + (e[1] || 0), 0);
+if (!entries.length || !total) return "all day, wherever the day takes them";
+const place = { home:"at home", vehicle:"on the road", work:"at work", school:"at school", kitchen:"in the kitchen", outdoor:"outdoors" }[entries[0][0]] || ("in the " + entries[0][0] + " hours");
+const pct = Math.round(entries[0][1] / total * 100);
+return pct >= 60 ? "most of it " + place : pct + "% of it " + place;
+}
+function renderPerson(b){
+const people = (b.household && b.household.people) || b.people || [], node = $("#person");
+node.textContent = "";
+if (!people.length) { node.textContent = "No household set yet."; return; }
+if (people.length === 1) { node.textContent = "You carry all of it — " + reasonFor(people[0]) + "."; return; }
+const top = people.slice().sort((a, c) => (c.attributed_risk_share || 0) - (a.attributed_risk_share || 0))[0];
+node.appendChild(el("b", null, top.name));
+node.appendChild(document.createTextNode(" carries the most of it — " + Math.round((top.attributed_risk_share || 0) * 100) + "% of the household’s inhaled dose, " + reasonFor(top) + "."));
+}
+
+/* against yesterday, from stored data only */
+const readHist = () => { const h = store.get(HIST_KEY, []); return Array.isArray(h) ? h.filter(x => x && x.date) : []; };
+function doneToday(){
+const pre = "done:" + isoDate() + ":", out = [];
+try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(pre) === 0 && localStorage.getItem(k) === "true") out.push(k.slice(pre.length)); } } catch (e) {}
+return out;
+}
+function renderCompare(b){
+const entry = { date: isoDate(), hour: nowHour, aqi: b.aqi.aqi, indoor: b.indoor_pm25, done: doneToday() };
+const prev = readHist().filter(x => x.date !== entry.date && Number.isFinite(Number(x.aqi))), node = $("#cmp");
+if (prev.length) {
+const exact = prev.filter(x => x.hour === entry.hour);
+const pick = (exact.length ? exact : prev).sort((x, y) => String(y.date).localeCompare(String(x.date)))[0];
+const yesterday = isoDate(new Date(Date.now() - 864e5));
+const when = (exact.length ? "at this hour " : "") + (pick.date === yesterday ? "yesterday" : "on " + pick.date);
+node.textContent = "";
+node.append(el("b", null, fmt(pick.aqi)), document.createTextNode(" " + when + ". "), el("b", null, fmt(b.aqi.aqi)), document.createTextNode(" now."));
+node.hidden = false;
+} else node.hidden = true;
+store.set(HIST_KEY, prev.concat([entry]).slice(-30));
+}
+
+/* the brief */
+async function load(){
+$("#err").hidden = true;
+const v = $("#verdict");
+v.classList.add("loading");
+v.textContent = "Reading the air over your street…";
+try {
+const r = await fetch("/api/brief", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(state) });
+const d = await r.json();
+if (!r.ok) throw new Error(d.detail || "server error");
+last = d;
+render(d);
+} catch (e) {
+const err = $("#err");
+err.hidden = false;
+err.textContent = "Could not compute today’s numbers: " + e.message + ". The server may still be starting — open The numbers behind this and save the household to retry.";
+v.classList.remove("loading");
+v.textContent = "—";
+}
+}
+function render(d){
+const b = d.brief;
+lastSlug = b.aqi.slug || "poor";
+paintTheme();
+nowHour = hourOf(b.stamp); $("#place").textContent = state.location.city || state.location.label || "Delhi";
+$("#clock").textContent = stampTime(b.stamp);
+$("#eyebrow").textContent = (state.location.city || (b.profile && b.profile.city) || "Delhi") + " · " + (b.aqi.dominant || "PM2.5"); const v = $("#verdict");
+v.classList.remove("loading");
+v.textContent = verdictCopy({ elevated_now: b.elevated_now, aqi: b.aqi.aqi, next_trough: b.next_trough, next_peak: b.next_peak, nowHour }); renderBand(d);
+$("#t_out").textContent = fmt(b.ambient_pm25);
+$("#t_in").textContent = fmt(b.indoor_pm25);
+$("#t_kit").textContent = fmt(b.kitchen_pm25);
+renderPerson(b);
+renderCompare(b); renderNumbers(d);
+renderFactors();
+// brief carries no day-plan list; d.ranked is the 14-item catalogue, not today.
+$("#planCount").textContent = "";
+$("#setupnote").hidden = !!store.get(HK, null);
+$("#modelsrc").textContent = d.model && d.model.available ? "Plans worded by " + d.model.name + " on this device." : "No local model found; the plan uses built-in wording.";
+}
+
+/* search */
+$("#placeBtn").addEventListener("click", () => {
+const p = $("#locpanel"), open = p.hidden;
+p.hidden = !open;
+$("#placeBtn").setAttribute("aria-expanded", String(open));
+if (open) $("#q").focus();
+});
 let tmr;
 $("#q").addEventListener("input", e => {
-  clearTimeout(tmr);
-  const v = e.target.value.trim();
-  const isEmpty = v.length < 2;
-  $("#q").setAttribute("aria-expanded", String(!isEmpty));
-  if (isEmpty) { $("#results").classList.remove("open"); return; }
-  tmr = setTimeout(async () => {
-    try {
-      const r = await fetch("/api/geocode?q=" + encodeURIComponent(v));
-      const d = await r.json();
-      const box = $("#results"); box.innerHTML = "";
-      if (!d.results.length) { box.innerHTML = '<div style="padding:12px 14px;color:var(--muted);font-size:13px">No match. Try a district or state.</div>'; }
-      d.results.forEach(c => {
-        const b = el("button"); b.setAttribute("role", "option"); b.tabIndex = 0;
-        b.innerHTML = `${c.name}<span>${[c.admin, c.country].filter(Boolean).join(", ")}</span>`;
-        b.onclick = () => {
-          state.location = { lat:c.lat, lon:c.lon, label:c.label, city:c.name, country_code:c.country_code, tz:c.timezone || "auto" };
-          box.classList.remove("open"); $("#q").value = ""; $("#q").setAttribute("aria-expanded", "false"); load();
-        };
-        box.appendChild(b);
-      });
-      box.classList.add("open");
-    } catch (err) {}
-  }, 280);
+clearTimeout(tmr);
+const v = e.target.value.trim();
+$("#q").setAttribute("aria-expanded", String(v.length >= 2));
+const box = $("#results");
+if (v.length < 2) { box.textContent = ""; return; }
+tmr = setTimeout(async () => {
+try {
+const d = await (await fetch("/api/geocode?q=" + encodeURIComponent(v))).json();
+box.textContent = "";
+const list = d.results || [];
+if (!list.length) { box.appendChild(el("p", null, "No match. Try a district or state.")); return; }
+list.forEach(c => {
+const btn = el("button", null, c.name || "");
+btn.type = "button";
+btn.setAttribute("role", "option");
+btn.appendChild(el("span", null, [c.admin, c.country].filter(Boolean).join(", ")));
+btn.addEventListener("click", () => {
+state.location = { lat:c.lat, lon:c.lon, label:c.label, city:c.name, country_code:c.country_code, tz:c.timezone || "auto" };
+saveHousehold();
+$("#q").value = "";
+$("#locpanel").hidden = true;
+$("#placeBtn").setAttribute("aria-expanded", "false");
+load();
 });
-// Escape closes the result list, which is what a keyboard user expects.
+box.appendChild(btn);
+});
+} catch (err) { box.textContent = "Search unavailable."; }
+}, 280);
+});
 $("#q").addEventListener("keydown", e => {
-  if (e.key === "Escape") { $("#results").classList.remove("open"); $("#q").setAttribute("aria-expanded", "false"); }
+if (e.key === "Escape") { $("#locpanel").hidden = true; $("#placeBtn").setAttribute("aria-expanded", "false"); $("#placeBtn").focus(); }
+}); /* views */
+const VIEWS = ["home", "plan", "numbers"];
+function setView(name, focus){
+VIEWS.forEach(k => { const s = $("#view-" + k); if (s) s.hidden = (k !== name); });
+if (focus !== false) {
+const h = name === "home" ? $("#answer") : $("#" + (name === "plan" ? "planHead" : "numHead"));
+if (h) h.focus();
+}
+try { window.scrollTo({ top: 0, behavior: mq("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); } catch (e) {}
+}
+$("#planEntry").addEventListener("click", () => { setView("plan"); if (!planStarted) { planStarted = true; generatePlan(); } });
+$("#eviEntry").addEventListener("click", () => setView("numbers"));
+$("#back1").addEventListener("click", () => setView("home"));
+$("#back2").addEventListener("click", () => setView("home"));
+$("#replan").addEventListener("click", () => generatePlan());
+$("#setupBtn").addEventListener("click", () => { setView("numbers"); $("#edDetails").open = true; $("#edDetails summary").focus(); }); function renderNumbers(d){
+const b = d.brief;
+$("#numstamp").textContent = b.stamp || "";
+$("#numlabel").textContent = b.aqi.label + " · dominant " + (b.aqi.dominant || "—"); const kv = $("#kv");
+kv.textContent = "";
+const add = (k, v) => { kv.appendChild(el("dt", null, k)); kv.appendChild(el("dd", null, v)); };
+add("CPCB AQI", fmt(b.aqi.aqi) + " · " + b.aqi.label);
+add("PM2.5 outdoors", fmt(b.ambient_pm25) + " µg/m³");
+add("PM2.5 indoors", fmt(b.indoor_pm25) + " µg/m³");
+add("PM2.5 at the stove", fmt(b.kitchen_pm25) + " µg/m³");
+add("Against the WHO guideline", fmt(b.who.multiple, 1) + "× (" + (b.who.label || "") + ")");
+if (b.grap) add("GRAP", b.grap.label || (b.grap.applies ? "in force" : "no stage"));
+if (b.ambient_label) add("Outdoor source", b.ambient_label); renderTable(b);
+renderOptions(d);
+renderSources(d);
+renderEmissions(d);
+renderSchool(b);
+}
+function renderTable(b){
+const people = (b.household && b.household.people) || b.people || [], body = $("#pbody");
+body.textContent = "";
+if (!people.length) {
+const tr = el("tr"), td = el("td", null, "No household yet.");
+td.colSpan = 6;
+tr.appendChild(td);
+body.appendChild(tr);
+return;
+}
+people.forEach(p => {
+const tr = el("tr"), th = el("th", null, p.name);
+th.scope = "row";
+tr.append(th, el("td", "n", fmt(p.age)), el("td", "n", fmt(p.mean_exposure, 1)),
+el("td", "n", fmt(p.dose_ug) + " µg"), el("td", "n", fmt(p.cigarettes, 1)));
+const share = Math.round((p.attributed_risk_share || 0) * 100), std = el("td", "n");
+std.appendChild(document.createTextNode(share + "%"));
+const sh = el("span", "sh"), i = el("i");
+i.style.width = Math.max(0, Math.min(100, share)) + "%";
+sh.appendChild(i);
+std.appendChild(sh);
+tr.appendChild(std);
+body.appendChild(tr);
 });
-document.addEventListener("click", e => { if (!e.target.closest(".loc")) { $("#results").classList.remove("open"); $("#q").setAttribute("aria-expanded", "false"); } });
-
-/* ---------------- household editor ---------------- */
-function renderPeopleEditor(){
-  const wrap = $("#peopleEdit"); wrap.innerHTML = "";
-  state.people.forEach((p, i) => {
-    const row = el("div", "person-edit");
-    const n = el("input"); n.value = p.name; n.placeholder = "Name"; n.oninput = e => p.name = e.target.value;
-    const a = el("input"); a.type = "number"; a.min = 0; a.max = 105; a.value = p.age; a.oninput = e => p.age = +e.target.value;
-    const c = el("select");
-    [["", "no condition"], ["asthma", "asthma"], ["copd", "COPD"], ["heart", "heart disease"], ["diabetes", "diabetes"]]
-      .forEach(([v, t]) => { const o = el("option", null, t); o.value = v; if ((p.conditions[0] || "") === v) o.selected = true; c.appendChild(o); });
-    c.onchange = e => p.conditions = e.target.value ? [e.target.value] : [];
-    const x = el("button", "btn ghost", "×"); x.style.padding = "4px 9px"; x.title = "Remove";
-    x.onclick = () => { if (state.people.length > 1) { state.people.splice(i, 1); renderPeopleEditor(); } };
-    const chk = el("label"); chk.style.fontSize = "11px"; chk.style.display = "flex"; chk.style.gap = "4px"; chk.style.alignItems = "center";
-    chk.innerHTML = `<input type="checkbox" ${p.commutes ? "checked" : ""} style="width:auto"> travels`;
-    chk.querySelector("input").onchange = e => p.commutes = e.target.checked;
-    const chk2 = el("label"); chk2.style.fontSize = "11px"; chk2.style.display = "flex"; chk2.style.gap = "4px"; chk2.style.alignItems = "center";
-    chk2.innerHTML = `<input type="checkbox" ${p.cooks ? "checked" : ""} style="width:auto"> cooks`;
-    chk2.querySelector("input").onchange = e => p.cooks = e.target.checked;
-    const wrap2 = el("div"); wrap2.style.display = "flex"; wrap2.style.gap = "10px"; wrap2.style.alignItems = "center";
-    wrap2.append(chk, chk2, x);
-    row.append(n, a, c, wrap2);
-    wrap.appendChild(row);
-  });
-  const add = el("button", "btn ghost", "+ Add a person"); add.style.justifySelf = "start"; add.style.marginTop = "2px";
-  add.onclick = () => { state.people.push({ name:"New", age:30, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false }); renderPeopleEditor(); };
-  wrap.appendChild(add);
 }
-
-function syncEditor(){
-  $("#f_kind").value = state.home.kind;
-  $("#f_fuel").value = state.home.cooking_fuel;
-  $("#f_exh").value = state.home.kitchen_exhaust;
-  $("#f_clean").value = state.home.cleaner;
-  $("#f_mode").value = state.transport.mode;
-  $("#f_km").value = state.transport.km_per_day;
-  $("#f_mask").value = state.transport.mask;
-  $("#f_cookh").value = state.habits.cook_minutes;
-  $("#f_coil").checked = state.habits.mosquito_coil;
-  $("#f_incense").checked = state.habits.incense_per_day > 0;
-  $("#f_sweep").checked = state.habits.dry_sweeping;
-  $("#f_exercise").checked = state.habits.outdoor_exercise;
-  $("#f_office").checked = state.office;
-  $("#f_burn").value = state.habits.waste_burning_kg_week;
-  renderPeopleEditor();
-}
-
-function readEditor(){
-  state.home.kind = $("#f_kind").value;
-  state.home.cooking_fuel = $("#f_fuel").value;
-  state.home.kitchen_exhaust = $("#f_exh").value;
-  state.home.cleaner = $("#f_clean").value;
-  state.transport.mode = $("#f_mode").value;
-  state.transport.km_per_day = +$("#f_km").value || 0;
-  state.transport.mask = $("#f_mask").value;
-  state.habits.cook_minutes = +$("#f_cookh").value || 0;
-  state.habits.mosquito_coil = $("#f_coil").checked;
-  state.habits.incense_per_day = $("#f_incense").checked ? 2 : 0;
-  state.habits.dry_sweeping = $("#f_sweep").checked;
-  state.habits.outdoor_exercise = $("#f_exercise").checked;
-  state.office = $("#f_office").checked;
-  state.habits.waste_burning_kg_week = +$("#f_burn").value || 0;
-  state.home.occupants = state.people.length;
-}
-
-/* ---------------- load ---------------- */
-async function load(){
-  $("#err").hidden = true;
-  $("#headline").textContent = "Reading the air over your street…";
-  $("#headline").classList.add("skeleton");
-  try {
-    const r = await fetch("/api/brief", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(state) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || "server error");
-    last = d;
-    render(d);
-  } catch (e) {
-    $("#err").hidden = false;
-    $("#err").textContent = "Could not compute today's numbers: " + e.message + ". The server may still be starting; press Recompute.";
-    $("#headline").classList.remove("skeleton");
-    $("#headline").textContent = "—";
-  }
-}
-
-function paint(slug){
-  const c = COLORS[slug] || COLORS.moderate;
-  document.documentElement.style.setProperty("--accent", c);
-}
-
-function render(d){
-  const b = d.brief;
-  paint(b.aqi.slug);
-  $("#headline").classList.remove("skeleton");
-  $("#where").textContent = state.location.label + " · " + b.stamp;
-  $("#headline").textContent = U(b.headline);
-  $("#aqi").textContent = fmt(b.aqi.aqi);
-  $("#aqilabel").textContent = b.aqi.label + " · " + (b.aqi.dominant || "");
-  const g = $("#grap");
-  g.textContent = b.grap.applies ? b.grap.label : "No GRAP stage";
-  g.style.color = b.grap.applies ? "var(--accent)" : "var(--muted)";
-  $("#whonote").textContent = U(b.ambient_pm25 + " µg/m³ outdoors · " + b.who.multiple + "× the WHO guideline");
-  $("#stamp").textContent = b.ambient_label;
-  $("#modelsrc").textContent = d.model.available ? "Plans written by " + d.model.name + " on this machine." : "No local model found; the plan is generated deterministically.";
-
-  // right now
-  const now = $("#now"); now.innerHTML = "";
-  const ICON = { window:"windows", mask:"masks", filter:"filter", run:"exercise", gov:"policy", stove:"stove" };
-  b.now.forEach(a => {
-    const row = el("div", "nowitem");
-    row.append(el("div", "k", ICON[a.icon] || a.icon));
-    const v = el("div"); v.append(el("div", "v", a.text), el("div", "w", a.why));
-    row.append(v); now.appendChild(row);
-  });
-  if (!b.now.length) now.innerHTML = '<div class="nowitem"><div class="k">air</div><div><div class="v">Nothing urgent. An ordinary day.</div><div class="w">Still worth knowing the peak hour on the right.</div></div></div>';
-
-  renderHours(d);
-  renderPeople(d);
-  renderSources(d);
-  renderEmissions(d);
-  renderOptions(d);
-  renderFactors();
-}
-
-function renderHours(d){
-  const hrs = d.hourly || [];
-  const max = Math.max(...hrs.map(h => h.pm25), 1);
-  const box = $("#hours"); box.innerHTML = "";
-  const peak = d.brief.worst_hour, low = d.brief.best_hour;
-  hrs.forEach(h => {
-    const bar = el("div");
-    const frac = Math.max(0.04, h.pm25 / max);
-    bar.style.height = (frac * 100) + "%";
-    bar.style.background = "var(--accent)";
-    bar.style.opacity = 0.35 + 0.65 * frac;
-    if (h.hour === peak.hour) bar.classList.add("mark");
-    bar.title = `${String(h.hour).padStart(2,"0")}:00 — ${h.pm25} µg/m³`;
-    box.appendChild(bar);
-  });
-  // The bars are geometry; assistive tech gets the same series as a sentence.
-  const desc = `Outdoor PM2.5 by hour. ` +
-    hrs.map(h => `${String(h.hour).padStart(2,"0")}:00, ${h.pm25} micrograms per cubic metre`).join("; ") +
-    `. Dirtiest at ${String(peak.hour).padStart(2,"0")}:00 with ${peak.pm25}, ` +
-    `cleanest at ${String(low.hour).padStart(2,"0")}:00 with ${low.pm25}.`;
-  $("#hoursDesc").textContent = U(desc);
-  const ax = $("#axis"); ax.innerHTML = "";
-  hrs.forEach(h => ax.appendChild(el("span", null, h.hour % 3 === 0 ? String(h.hour).padStart(2,"0") : "")));
-  $("#legpeak").textContent = `worst ${String(peak.hour).padStart(2,"0")}:00 · ${peak.pm25} µg/m³`;
-  $("#leglow").textContent = `cleanest ${String(low.hour).padStart(2,"0")}:00 · ${low.pm25} µg/m³`;
-}
-
-function renderPeople(d){
-  const rows = d.brief.household.people;
-  const maxd = Math.max(...rows.map(r => r.dose_ug), 1);
-  const box = $("#people"); box.innerHTML = "";
-  rows.forEach(p => {
-    const row = el("div", "prow");
-    const top = el("div", "prow-top");
-    top.append(el("span", "pname", p.name), el("span", "page", "age " + p.age));
-    if (p.sensitivity >= 1.4) top.appendChild(el("span", "tag", "sensitive"));
-    top.appendChild(el("span", "pdose", fmt(p.dose_ug) + " µg"));
-    const bar = el("div", "pbar"); const i = el("i"); i.style.width = (p.dose_ug / maxd * 100) + "%"; bar.appendChild(i);
-    bar.setAttribute("aria-hidden", "true");
-    const meta = el("div", "pmeta");
-    meta.innerHTML = `<span>breathing <b>${p.mean_exposure}</b> µg/m³</span>
-      <span><b>${p.cigarettes}</b> cigarette-equiv</span>
-      <span><b>${Math.round(p.attributed_risk_share * 100)}%</b> of household risk</span>`;
-    // The bar length carries the comparison visually; give it a text equivalent.
-    const sr = el("span", "sr");
-    sr.textContent = U(`${p.name}, age ${p.age}: inhales ${fmt(p.dose_ug)} micrograms a day, `
-      + `an average exposure of ${p.mean_exposure} micrograms per cubic metre, `
-      + `${p.cigarettes} cigarette-equivalents, ${Math.round(p.attributed_risk_share * 100)} percent of household risk.`);
-    row.append(top, sr, bar, meta);
-    box.appendChild(row);
-  });
-}
-
-function renderSources(d){
-  const p = d.brief.profile, box = $("#sources"); box.innerHTML = "";
-  const head = el("div"); head.style.marginBottom = "10px";
-  head.innerHTML = `<div style="font-weight:600;font-size:13px">${p.label}</div>
-    <div class="tiny">${p.basis}${p.verified_city ? "" : " — a regional pattern, not a measurement of your street"}</div>`;
-  box.appendChild(head);
-  const mid = p.mid || {};
-  Object.entries(mid).sort((a,b) => b[1]-a[1]).forEach(([k, v]) => {
-    const r = el("div", "bar-row");
-    const l = el("div", "lbl"); l.append(el("span", null, k), el("span", "num", v + "%"));
-    const t = el("div", "track"); const i = el("i"); i.style.width = v + "%"; t.appendChild(i);
-    r.append(l, t); box.appendChild(r);
-  });
-  if (p.local_note) { const n = el("div", "note", p.local_note); box.appendChild(n); }
-}
-
-function renderEmissions(d){
-  const e = d.emissions, box = $("#emissions"); box.innerHTML = "";
-  const dl = el("dl", "kv");
-  const add = (k, v) => { dl.append(el("dt", null, k), el("dd", null, v)); };
-  // A gas stove's particulate output is genuinely close to zero; printing
-  // "0.00 g" reads like a broken number rather than a fact. Say it in words.
-  const tiny = e.cook_pm25_g_day < 0.05;
-  add("Stove PM2.5", tiny ? "negligible" : fmt(e.cook_pm25_g_day, 1) + " g/day");
-  add("Over a year", tiny ? "under 20 g" : fmt(e.cook_pm25_kg_year, 1) + " kg");
-  add("Open burning", e.burn_pm25_g_day > 0 ? fmt(e.burn_pm25_g_day, 1) + " g/day" : "none");
-  add("Commute CO₂", fmt(e.travel_co2_kg_day, 2) + " kg/day");
-  add("Cooking CO₂", fmt(e.cook_co2_kg_day, 2) + " kg/day");
-  add("Fuel and fares", "Rs " + fmt(e.cost_inr_day) + "/day");
-  box.appendChild(dl);
-  if (d.home.cooking_fuel === "biomass" || d.home.cooking_fuel === "kerosene") {
-    box.appendChild(el("div", "note",
-      `Your stove alone puts about ${fmt(e.cook_pm25_kg_year, 1)} kg of fine particles into the air each year. ` +
-      `Measured field emission factors for a mud chulha are 10-23 g per kg of wood, dung or crop waste — ` +
-      `this is that arithmetic, not an estimate of the plume.`));
-  } else {
-    box.appendChild(el("div", "tiny",
-      "Gas or electric cooking is why the stove number is negligible. The remaining emissions are the commute and anything burned outdoors."));
-  }
-}
-
 function renderOptions(d){
-  const box = $("#opts"); box.innerHTML = "";
-  d.ranked.slice(0, 9).forEach((r, i) => {
-    const det = el("details", "opt");
-    const sum = el("summary");
-    const rank = el("span", "orank", String(i + 1).padStart(2, "0"));
-    const title = el("span", "otitle", r.title);
-    if (r.worst_person && r.worst_pct > 1) {
-      title.appendChild(el("span", "who", `biggest gain for ${r.worst_person}: ${r.worst_pct}%`));
-    }
-    const pct = el("div", "opct");
-    pct.innerHTML = `${r.pct > 0 ? "−" + r.pct + "%" : "—"}<small>${r.band_pct[0]}–${r.band_pct[1]}%</small>`;
-    const cost = el("div", "ocost");
-    cost.innerHTML = `${inr(r.cost_inr)}<small>${r.runtime_inr_yr ? inr(r.runtime_inr_yr) + "/yr" : r.effort || ""}</small>`;
-    sum.append(rank, title, pct, cost);
-    det.appendChild(sum);
-
-    const body = el("div", "obody");
-    body.appendChild(el("p", null, r.why));
-    if (r.per_person && r.per_person.length) {
-      body.appendChild(el("h4", null, "Dose, before and after"));
-      const pb = el("div", "personbars");
-      const maxv = Math.max(...r.per_person.map(p => p.before), 1);
-      r.per_person.forEach(p => {
-        const row = el("div", "personbar");
-        const t = el("div", "track");
-        t.innerHTML = `<i style="width:${p.before / maxv * 100}%"></i><i class="aft" style="left:${p.after / maxv * 100}%;width:${(p.before - p.after) / maxv * 100}%"></i>`;
-        row.append(el("span", null, p.name), t, el("span", "mono-r", `−${p.pct}%`));
-        pb.appendChild(row);
-      });
-      body.appendChild(pb);
-      body.appendChild(el("div", "tiny", "Grey bar: today. Accent section: the part that goes away."));
-    }
-    if (r.emissions_before && r.emissions_after) {
-      const dpm = r.emissions_before.pm25_g_day - r.emissions_after.pm25_g_day;
-      const dco = r.emissions_before.co2_kg_day - r.emissions_after.co2_kg_day;
-      if (dpm > 0.01 || dco > 0.01) {
-        body.appendChild(el("h4", null, "What leaves your chimney and tailpipe"));
-        const bits = [];
-        if (dpm > 0.01) bits.push(`${fmt(dpm,1)} g less PM2.5 a day (${fmt(dpm * 365 / 1000,1)} kg a year)`);
-        if (dco > 0.01) bits.push(`${fmt(dco,2)} kg less CO₂ a day`);
-        body.appendChild(el("p", null, bits.join("; ") + "."));
-      }
-    }
-    body.appendChild(el("div", "src", "Evidence: " + r.source));
-    if (r.unquantified) body.appendChild(el("div", "tiny", "Not scored: no honest percentage can be attached to this one, so it sits at the bottom of the ranking on purpose."));
-    det.appendChild(body);
-    box.appendChild(det);
-  });
+const box = $("#opts");
+box.textContent = "";
+(d.ranked || []).slice(0, 9).forEach((r, i) => {
+const det = el("details", "opt"), sum = el("summary");
+sum.appendChild(el("span", "orank", pad2(i + 1)));
+const title = el("span", "otitle", r.title || "");
+if (r.worst_person && r.worst_pct > 1) title.appendChild(el("span", "who", "biggest gain for " + r.worst_person + ": " + r.worst_pct + "%"));
+sum.appendChild(title);
+const pct = el("div", "opct");
+pct.appendChild(el("span", null, r.pct > 0 ? "−" + r.pct + "%" : "—"));
+if (r.band_pct && r.band_pct.length >= 2) pct.appendChild(el("small", null, r.band_pct[0] + "–" + r.band_pct[1] + "%"));
+sum.appendChild(pct);
+const cost = el("div", "ocost");
+cost.appendChild(el("span", null, inr(r.cost_inr)));
+cost.appendChild(el("small", null, r.runtime_inr_yr ? inr(r.runtime_inr_yr) + "/yr" : (r.effort || "")));
+sum.appendChild(cost);
+det.appendChild(sum); const body = el("div", "obody");
+if (r.why) body.appendChild(el("p", null, r.why));
+if (r.per_person && r.per_person.length) {
+body.appendChild(el("h4", null, "Dose, before and after"));
+const pb = el("div", "personbars");
+pb.setAttribute("aria-hidden", "true");
+const maxv = Math.max(1, ...r.per_person.map(p => p.before));
+r.per_person.forEach(p => {
+const row = el("div", "personbar"), t = el("div", "track");
+const b1 = el("i"), b2 = el("i", "aft");
+b1.style.width = (p.before / maxv * 100).toFixed(1) + "%";
+b2.style.left = (p.after / maxv * 100).toFixed(1) + "%";
+b2.style.width = ((p.before - p.after) / maxv * 100).toFixed(1) + "%";
+t.append(b1, b2);
+row.append(el("span", "nm", p.name), t, el("span", "mono-r", "−" + p.pct + "%"));
+pb.appendChild(row);
+});
+body.appendChild(pb);
+body.appendChild(el("p", "sr", "Per person, before and after: " + r.per_person.map(p => p.name + " " + fmt(p.before) + " to " + fmt(p.after) + " micrograms a day, a fall of " + p.pct + " percent").join("; ") + "."));
+body.appendChild(el("div", "tiny", "Grey bar: today. Accent section: the part that goes away."));
+}
+if (r.emissions_before && r.emissions_after) {
+const dpm = (r.emissions_before.pm25_g_day || 0) - (r.emissions_after.pm25_g_day || 0);
+const dco = (r.emissions_before.co2_kg_day || 0) - (r.emissions_after.co2_kg_day || 0);
+if (dpm > 0.01 || dco > 0.01) {
+const bits = [];
+if (dpm > 0.01) bits.push(fmt(dpm, 1) + " g less PM2.5 a day (" + fmt(dpm * 365 / 1000, 1) + " kg a year)");
+if (dco > 0.01) bits.push(fmt(dco, 2) + " kg less CO₂ a day");
+body.appendChild(el("h4", null, "What leaves the chimney and the tailpipe"));
+body.appendChild(el("p", null, bits.join("; ") + "."));
+}
+}
+if (r.source) body.appendChild(el("div", "src", "Evidence: " + r.source));
+if (r.unquantified) body.appendChild(el("div", "tiny", "Not scored: no honest percentage can be attached to this one, so it sits at the bottom of the ranking on purpose."));
+det.appendChild(body);
+box.appendChild(det);
+});
+}
+function renderSources(d){
+const p = (d.brief && d.brief.profile) || {}, box = $("#sources");
+box.textContent = "";
+$("#profsrc").textContent = p.verified_city ? "verified local profile" : "regional pattern";
+const head = el("div");
+head.appendChild(el("div", null, p.label || "No profile"));
+if (p.basis) head.appendChild(el("div", "tiny", p.basis + (p.verified_city ? "" : " — a regional pattern, not a measurement of your street")));
+box.appendChild(head);
+const mid = p.mid || {}, rows = Object.keys(mid).sort((a, b) => mid[b] - mid[a]);
+rows.forEach(k => {
+const row = el("div", "bar-row"), lbl = el("div", "lbl"), t = el("div", "track"), i = el("i");
+lbl.append(el("span", null, k), el("b", null, mid[k] + "%"));
+i.style.width = Math.max(0, Math.min(100, mid[k])) + "%";
+t.appendChild(i);
+row.append(lbl, t);
+row.setAttribute("aria-hidden", "true");
+box.appendChild(row);
+});
+if (!rows.length) box.appendChild(el("p", "tiny", "No source split available."));
+else box.appendChild(el("p", "sr", "Modelled source shares: " + rows.map(k => k + " " + mid[k] + " percent").join("; ") + "."));
+if (p.local_note) box.appendChild(el("div", "note", p.local_note));
+}
+function renderEmissions(d){
+const e = d.emissions || (d.brief && d.brief.emissions) || {}, box = $("#emissions"), dl = el("dl", "kv");
+box.textContent = "";
+const add = (k, v) => { dl.appendChild(el("dt", null, k)); dl.appendChild(el("dd", null, v)); };
+const neg = (e.cook_pm25_g_day || 0) < 0.05;
+add("Stove PM2.5", neg ? "negligible" : fmt(e.cook_pm25_g_day, 1) + " g/day");
+add("Over a year", neg ? "under 20 g" : fmt(e.cook_pm25_kg_year, 1) + " kg");
+add("Open burning", (e.burn_pm25_g_day || 0) > 0 ? fmt(e.burn_pm25_g_day, 1) + " g/day" : "none");
+add("Commute CO₂", fmt(e.travel_co2_kg_day, 2) + " kg/day");
+add("Cooking CO₂", fmt(e.cook_co2_kg_day, 2) + " kg/day");
+add("Fuel and fares", "Rs " + fmt(e.cost_inr_day) + "/day");
+box.appendChild(dl);
+const fuel = (d.home && d.home.cooking_fuel) || state.home.cooking_fuel;
+box.appendChild((fuel === "biomass" || fuel === "kerosene")
+? el("div", "note", "The stove alone puts about " + fmt(e.cook_pm25_kg_year, 1) + " kg of fine particles into the air each year. Measured field emission factors for a mud chulha are 10–23 g per kg of wood, dung or crop waste — this is that arithmetic, not an estimate of the plume.")
+: el("div", "tiny", "Gas or electric cooking is why the stove number is negligible. What remains is the commute and anything burned outdoors."));
+}
+function renderSchool(b){
+const s = b.school || {}, blk = $("#schoolBlk");
+if (!s.applies) { blk.hidden = true; return; }
+blk.hidden = false;
+const n = $("#school");
+n.textContent = "";
+n.append(el("b", null, (s.level || "school") + " — "), document.createTextNode(s.advice || ""));
+$("#schoolSrc").textContent = s.source ? "source: " + s.source : "";
 }
 
 let factorsLoaded = false;
 async function renderFactors(){
-  if (factorsLoaded) return;
-  factorsLoaded = true;
-  try {
-    const r = await fetch("/api/factors"); const d = await r.json();
-    const box = $("#factors"); box.innerHTML = "";
-    Object.entries(d.groups).forEach(([g, items]) => {
-      const row = el("div", "fgroup"); row.appendChild(el("h5", null, g));
-      Object.entries(items).forEach(([k, v]) => {
-        const f = el("div", "frow");
-        const left = el("span"); left.appendChild(document.createTextNode(k));
-        const kind = el("span", "kind " + v.kind, v.kind);
-        left.appendChild(kind);
-        f.append(left, el("b", null, v.value + " " + v.unit));
-        row.appendChild(f);
-      });
-      box.appendChild(row);
-    });
-    const n = Object.values(d.groups).reduce((a, g) => a + Object.keys(g).length, 0);
-    $("#eviCount").textContent = `${n} constants, each with its source and whether it is measured, standard, or a declared estimate`;
-    const m = el("div", "fgroup"); m.appendChild(el("h5", null, "How the calculation works"));
-    const ol = el("ol", "method"); (d.method || []).forEach(t => ol.appendChild(el("li", null, t))); m.appendChild(ol);
-    box.appendChild(m);
-    const lim = el("div", "fgroup"); lim.appendChild(el("h5", null, "What it cannot do"));
-    const ul = el("ul", "method"); (d.limits || []).forEach(t => ul.appendChild(el("li", null, t))); lim.appendChild(ul);
-    box.appendChild(lim);
-  } catch (e) { $("#factors").textContent = "Evidence list unavailable."; }
+if (factorsLoaded) return;
+factorsLoaded = true;
+try {
+const d = await (await fetch("/api/factors")).json(), box = $("#factors");
+box.textContent = "";
+Object.entries(d.groups || {}).forEach(([g, items]) => {
+const row = el("div", "fgroup");
+row.appendChild(el("h5", null, g));
+Object.entries(items).forEach(([k, v]) => {
+const f = el("div", "frow"), left = el("span");
+left.appendChild(document.createTextNode(k));
+left.appendChild(el("span", "kind " + (v.kind || ""), v.kind || ""));
+f.append(left, el("b", null, v.value + " " + v.unit));
+row.appendChild(f);
+});
+box.appendChild(row);
+});
+const n = Object.values(d.groups || {}).reduce((a, g) => a + Object.keys(g).length, 0);
+$("#eviCount").textContent = n + " constants, each with its source and whether it is measured, standard, or a declared estimate";
+const m = el("div", "fgroup");
+m.appendChild(el("h5", null, "How the calculation works"));
+const ol = el("ol", "method");
+(d.method || []).forEach(t => ol.appendChild(el("li", null, t)));
+m.appendChild(ol);
+box.appendChild(m);
+const lim = el("div", "fgroup");
+lim.appendChild(el("h5", null, "What it cannot do"));
+const ul = el("ul", "method");
+(d.limits || []).forEach(t => ul.appendChild(el("li", null, t)));
+lim.appendChild(ul);
+box.appendChild(lim);
+} catch (e) {
+factorsLoaded = false;
+$("#factors").textContent = "Evidence list unavailable.";
+}
 }
 
-/* ---------------- plan streaming ---------------- */
-let ctrl = null;
+let planCache = null;
+const actionKey = (t, ranked) => {
+if (t && t.key) return t.key;
+const hit = (ranked || []).find(r => r.title && t.action && (t.action.indexOf(r.title) !== -1 || r.title.indexOf(t.action) !== -1));
+return (hit && hit.key) ? hit.key : slugKey(t && t.action);
+};
+//key = "done:" + today's ISO date from new Date() + the action key. No date is hardcoded.
+function doneCtl(key, row){
+const lab = el("label", "done"), cb = el("input");
+cb.type = "checkbox";
+cb.checked = store.get(doneKey(key), false) === true;
+if (cb.checked) row.classList.add("is-done");
+cb.addEventListener("change", () => { store.set(doneKey(key), cb.checked); row.classList.toggle("is-done", cb.checked); });
+lab.append(cb, document.createTextNode("Done"));
+const f = el("div", "rfoot");
+f.appendChild(lab);
+return f;
+}
+function actionRow(o){
+const row = el("div", "railrow");
+if (o.top) row.classList.add("top");
+const g = el("div", "gutter");
+g.appendChild(document.createTextNode(o.when || "—"));
+row.appendChild(g);
+const bd = el("div", "railbody");
+if (o.top) bd.appendChild(el("span", "topword", "the one thing"));
+bd.appendChild(el("p", "ract", o.action || ""));
+if (o.why) bd.appendChild(el("p", "rwhy", o.why));
+if (o.meta) bd.appendChild(el("p", "rmeta", o.meta));
+if (o.key) bd.appendChild(doneCtl(o.key, row));
+row.appendChild(bd);
+return row;
+}
 async function generatePlan(){
-  const btn = $("#planBtn"); btn.disabled = true; btn.textContent = "Writing…";
-  const box = $("#plan");
-  box.innerHTML = "";
-  const open = el("p", "opening"); open.innerHTML = '<span class="streaming"><span class="pulse"></span>Reading your numbers</span>';
-  box.appendChild(open);
-  const status = el("div", "planfoot");
-  status.innerHTML = '<span class="tiny" id="genstatus">Building the fact sheet…</span>';
-  box.appendChild(status);
-  let raw = "";
-  if (ctrl) ctrl.abort();
-  ctrl = new AbortController();
-  try {
-    const resp = await fetch("/api/plan", {
-      method:"POST", headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(state), signal: ctrl.signal
-    });
-    if (!resp.ok) throw new Error("plan endpoint returned " + resp.status);
-    const reader = resp.body.getReader();
-    const dec = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream:true });
-      let idx;
-      while ((idx = buf.indexOf("\n\n")) >= 0) {
-        const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
-        const ev = /^event: (.+)$/m.exec(chunk);
-        const dt = /^data: (.+)$/m.exec(chunk);
-        if (!ev || !dt) continue;
-        let payload; try { payload = JSON.parse(dt[1]); } catch (e) { continue; }
-        if (ev[1] === "facts") {
-          $("#genstatus").textContent = `Fact sheet ready (${payload.chars} characters). Writing…`;
-        } else if (ev[1] === "token") {
-          raw += payload.t;
-          open.textContent = raw.replace(/^\{[\s\S]*?"opening"\s*:\s*"/, "").replace(/"\s*,\s*"today[\s\S]*$/, "").replace(/\\n/g, " ");
-        } else if (ev[1] === "plan") {
-          renderPlan(payload);
-        } else if (ev[1] === "error") {
-          $("#genstatus").textContent = "Model error: " + payload.error + ". The deterministic plan still works — press the button again.";
-        }
-      }
-    }
-  } catch (e) {
-    if (e.name !== "AbortError") {
-      open.textContent = "The plan could not be written. The arithmetic above is unaffected.";
-      $("#genstatus").textContent = String(e.message);
-    }
-  } finally {
-    btn.disabled = false; btn.textContent = "Write today's plan";
-  }
+const btn = $("#replan");
+btn.disabled = true;
+btn.textContent = "Writing…";
+const box = $("#plan"), status = $("#genstatus");
+box.textContent = "";
+const open = el("p", "opening"), spin = el("span", "pulse");
+open.append(spin, document.createTextNode("Reading your numbers"));
+box.appendChild(open);
+status.textContent = "Building the fact sheet…"; let raw = "";
+if (ctrl) ctrl.abort();
+ctrl = new AbortController();
+try {
+const resp = await fetch("/api/plan", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(state), signal: ctrl.signal });
+if (!resp.ok) throw new Error("plan endpoint returned " + resp.status);
+const reader = resp.body.getReader(), dec = new TextDecoder();
+let buf = "";
+while (true) {
+const { done, value } = await reader.read();
+if (done) break;
+buf += dec.decode(value, { stream:true });
+let idx;
+while ((idx = buf.indexOf("\n\n")) >= 0) {
+const chunk = buf.slice(0, idx);
+buf = buf.slice(idx + 2);
+const ev = /^event: (.+)$/m.exec(chunk), dt = /^data: (.+)$/m.exec(chunk);
+if (!ev || !dt) continue;
+let payload;
+try { payload = JSON.parse(dt[1]); } catch (e) { continue; }
+if (ev[1] === "facts") status.textContent = "Fact sheet ready (" + payload.chars + " characters). Writing the day…";
+else if (ev[1] === "token") {
+raw += payload.t;
+open.textContent = raw.replace(/^\{[\s\S]*?"opening"\s*:\s*"/, "").replace(/"\s*,\s*"today[\s\S]*$/, "").replace(/\\n/g, " ");
+} else if (ev[1] === "plan") { planCache = payload; renderPlan(payload); }
+else if (ev[1] === "error") status.textContent = "Model error: " + payload.error + ". The plan still renders from the calculation — press “Write it again”.";
 }
-
+}
+box.hidden = false;
+status.textContent = "";
+} catch (e) {
+if (e.name !== "AbortError") {
+status.textContent = "The plan could not be written. The numbers behind this are unaffected.";
+box.textContent = "";
+box.appendChild(el("p", "prose", "The plan could not be written just now. Its figures are still under “The numbers behind this”."));
+}
+} finally {
+btn.disabled = false;
+btn.textContent = "Write it again";
+}
+}
 function renderPlan(p){
-  const box = $("#plan"); box.innerHTML = "";
-  const o = el("p", "opening", p.opening || ""); box.appendChild(o);
-
-  // The figures the opening paragraph was written around, printed by Python so
-  // they cannot drift from the sentence they belong to.
-  if (p.figures && p.figures.length) {
-    const fg = el("div", "figstrip");
-    p.figures.forEach(f => {
-      const cell = el("div", "figcell");
-      cell.append(el("div", "fv", f.value));
-      cell.append(el("div", "fl", f.unit));
-      cell.append(el("div", "fk", f.label));
-      fg.appendChild(cell);
-    });
-    box.appendChild(fg);
-  }
-
-  const topKey = (p.the_one_thing && p.the_one_thing.action) || "";
-  (p.today || []).forEach(t => {
-    const row = el("div", "planitem");
-    row.append(el("div", "t", t.time || ""));
-    const v = el("div");
-    const head = el("div", "a", t.action || "");
-    if (topKey && t.action === topKey) head.appendChild(el("span", "topflag", "the one thing"));
-    v.appendChild(head);
-    if (t.why) v.append(el("div", "y", t.why));
-    const meta = el("div", "eff");
-    const bits = [];
-    if (t.effect !== undefined) bits.push(t.effect + "% of the household dose");
-    if (t.who) bits.push("most for " + t.who + " at " + t.who_pct + "%");
-    if (t.effort) bits.push(t.effort);
-    meta.textContent = bits.join(" · ");
-    if (meta.textContent) v.append(meta);
-    row.append(v); box.appendChild(row);
-  });
-
-  if (p.the_one_thing && p.the_one_thing.action) {
-    const c = el("div", "onething");
-    c.append(el("div", "lab", "If you do one thing"));
-    c.append(el("div", "a", p.the_one_thing.action));
-    if (p.the_one_thing.why) c.append(el("div", "y", p.the_one_thing.why));
-    const m = el("div", "one-meta");
-    const bits = [];
-    if (p.the_one_thing.effect !== undefined) {
-      bits.push(`−${p.the_one_thing.effect}% household dose`);
-      if (p.the_one_thing.band) bits.push(`range ${p.the_one_thing.band[0]}–${p.the_one_thing.band[1]}%`);
-    }
-    if (p.the_one_thing.who) bits.push(`most for ${p.the_one_thing.who} at ${p.the_one_thing.who_pct}%`);
-    if (p.the_one_thing.cost_inr !== undefined) bits.push(inr(p.the_one_thing.cost_inr));
-    m.textContent = bits.join(" · ");
-    c.appendChild(m);
-    if (p.the_one_thing.source) c.appendChild(el("div", "src", "Evidence: " + p.the_one_thing.source));
-    box.appendChild(c);
-  }
-
-  if (p.this_week && p.this_week.length) {
-    const h = el("div", "lab"); h.textContent = "This week";
-    h.style.cssText = "font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:var(--muted);margin-top:18px;border-top:1px solid var(--rule);padding-top:14px";
-    box.appendChild(h);
-    p.this_week.forEach(w => {
-      const row = el("div", "planitem");
-      row.append(el("div", "t", w.cost_inr !== undefined ? inr(w.cost_inr) : "free"));
-      const v = el("div");
-      v.append(el("div", "a", w.action || ""));
-      if (w.why) v.append(el("div", "y", w.why));
-      if (w.impact) v.append(el("div", "eff", w.impact));
-      row.append(v); box.appendChild(row);
-    });
-  }
-
-  if (p.for_children) {
-    const c = el("div", "onething"); c.style.borderTopColor = "var(--rule-2)";
-    c.append(el("div", "lab", "For the children"));
-    const t = el("div"); t.style.cssText = "font-size:13.5px;margin-top:6px;color:var(--ink-2)"; t.textContent = U(p.for_children);
-    c.appendChild(t); box.appendChild(c);
-  }
-
-  if (p.what_this_does_not_fix) {
-    const c = el("p"); c.style.cssText = "font-size:12.5px;color:var(--muted);margin:16px 0 0;border-top:1px solid var(--rule);padding-top:12px";
-    c.textContent = U(p.what_this_does_not_fix); box.appendChild(c);
-  }
-
-  const foot = el("div", "planfoot");
-  const by = p.generated_by === "deterministic"
-    ? "Built-in wording. The plan and every figure are the same either way."
-    : `Wording by ${"the local model"}; every action and figure decided by the calculation.`;
-  foot.appendChild(el("span", "tiny", by));
-  if (p.notes && p.notes.length) {
-    foot.appendChild(el("span", "tiny", `${p.notes.length} sentence(s) removed because they carried a figure the model had not been given.`));
-  }
-  if (p.fallback_reason) foot.appendChild(el("span", "tiny", p.fallback_reason));
-  box.appendChild(foot);
-  $("#planby").textContent = p.generated_by === "deterministic" ? "built-in wording" : "local model wording";
+const box = $("#plan"), ranked = (last && last.ranked) || [];
+box.textContent = ""; //prose above the actions and, as the honest limit, at the very bottom. Never interleaved: the actions are Python's.
+if (p.opening) box.appendChild(el("p", "opening", p.opening)); if (p.figures && p.figures.length) {
+const fg = el("div", "figstrip");
+p.figures.forEach(f => {
+const cell = el("div", "figcell");
+cell.append(el("div", "fv", f.value), el("div", "fl", f.unit), el("div", "fk", f.label));
+fg.appendChild(cell);
+});
+box.appendChild(fg);
+}
+if (p.for_children) box.appendChild(el("p", "subprose", p.for_children)); //a vertical rail, hour in the gutter, in the order the family lives them. The top one gets a rule and two words only.
+const oneAction = (p.the_one_thing && p.the_one_thing.action) || "";
+const rail = el("div", "rail");
+const isTop = a => !!(oneAction && a && (a === oneAction || a.indexOf(oneAction) !== -1 || oneAction.indexOf(a) !== -1));
+(p.today || []).forEach(t => {
+const meta = [];
+if (t.effect !== undefined) meta.push(t.effect + "% of the household dose");
+if (t.who) meta.push("most for " + t.who + " at " + t.who_pct + "%");
+if (t.effort) meta.push(t.effort);
+rail.appendChild(actionRow({ when: t.time, action: t.action, why: t.why, meta: meta.join(" · "), top: isTop(t.action), key: actionKey(t, ranked) }));
+});
+if (oneAction && !(p.today || []).some(t => isTop(t.action))) {
+rail.appendChild(actionRow({ when: "the one thing", action: oneAction, why: p.the_one_thing.why, top: true, key: actionKey(p.the_one_thing, ranked) }));
+}
+box.appendChild(rail); // This week, on the same rail, still above the honest limit.
+if (p.this_week && p.this_week.length) {
+const head = el("div", "blkhead");
+head.style.marginTop = "18px";
+head.append(el("h3", null, "This week"), el("span", "aside", "the slower moves"));
+box.appendChild(head);
+const weekRail = el("div", "rail");
+p.this_week.forEach(w => {
+weekRail.appendChild(actionRow({ when: w.cost_inr !== undefined ? inr(w.cost_inr) : "free", action: w.action, why: w.why, meta: w.impact, key: w.key || slugKey(w.action) }));
+});
+box.appendChild(weekRail);
 }
 
-/* ---------------- wiring ---------------- */
-$("#apply").onclick = () => { readEditor(); load(); };
-$("#planBtn").onclick = () => { readEditor(); generatePlan(); };
-["f_kind","f_fuel","f_exh","f_clean","f_mode","f_mask"].forEach(id => $("#"+id).addEventListener("change", () => { readEditor(); load(); }));
-["f_km","f_cookh","f_burn"].forEach(id => $("#"+id).addEventListener("change", () => { readEditor(); load(); }));
-["f_coil","f_incense","f_sweep","f_exercise","f_office"].forEach(id => $("#"+id).addEventListener("change", () => { readEditor(); load(); }));
+if (p.what_this_does_not_fix) box.appendChild(el("p", "limit", p.what_this_does_not_fix)); const foot = el("div", "planfoot");
+foot.appendChild(el("span", null, p.generated_by === "deterministic"
+? "Built-in wording. Every action and figure is computed either way."
+: "Wording by the model on this device; every action and figure decided by the calculation."));
+if (p.notes && p.notes.length) foot.appendChild(el("span", null, p.notes.length + " sentence(s) removed for carrying a figure the model was not given."));
+if (p.fallback_reason) foot.appendChild(el("span", null, p.fallback_reason));
+box.appendChild(foot); $("#planby").textContent = p.generated_by === "deterministic" ? "built-in wording" : "model wording";
+// today's rail only: the rows below also carry the slower "this week" items.
+$("#planCount").textContent = (p.today || []).length + " today";
+}
 
-syncEditor();
+const FUELS = [["lpg","Gas cylinder","LPG, the usual kitchen"],["png","Piped gas","PNG to the burner"],["biomass","Wood or dung","chulha, crop waste"],["electric","Electric","induction or coil"]];
+const MODES = [["two_wheeler","Two-wheeler","the road at 1.3–1.5×"],["car_ac","Car, AC","filtered cabin"],["auto","Auto","open sides"],["bus","Bus","shared air"],["metro","Metro","the cleanest air"]];
+const COND = [["","no condition"],["asthma","asthma"],["copd","COPD"],["heart","heart disease"],["diabetes","diabetes"]]; function renderChips(){
+const wrap = $("#chips");
+wrap.textContent = "";
+state.people.forEach((p, i) => {
+const cond = (p.conditions && p.conditions[0]) || "no condition";
+const b = el("button", "chip", p.name || "Person");
+b.type = "button";
+b.setAttribute("aria-pressed", String(peopleSel === i));
+b.setAttribute("aria-label", (p.name || "Person") + ", age " + (p.age || "unknown") + ", " + cond + ". Tap to edit.");
+b.appendChild(el("small", null, (p.age || "?") + " · " + cond));
+b.addEventListener("click", () => { peopleSel = i; renderChips(); renderPersonEdit(); });
+wrap.appendChild(b);
+});
+const add = el("button", "chip", "+ Add a person");
+add.type = "button";
+add.appendChild(el("small", null, "one more"));
+add.addEventListener("click", () => {
+state.people.push({ name:"New", age:30, conditions:[], commutes:true, cooks:false, exercises:true, pregnant:false });
+peopleSel = state.people.length - 1;
+renderChips();
+renderPersonEdit();
+});
+wrap.appendChild(add);
+}
+function labelled(id, text, node){
+const w = el("div"), l = el("label", null, text);
+l.setAttribute("for", id);
+node.id = id;
+w.append(l, node);
+return w;
+}
+function renderPersonEdit(){
+const box = $("#pedit"), p = state.people[peopleSel];
+box.textContent = "";
+box.hidden = !p;
+if (!p) return; const name = el("input");
+name.type = "text";
+name.value = p.name || "";
+name.maxLength = 24;
+name.addEventListener("input", e => { p.name = e.target.value || "Person"; }); const age = el("input");
+age.type = "number";
+age.min = 0;
+age.max = 105;
+age.value = p.age ?? 30;
+age.addEventListener("input", e => { p.age = Math.max(0, Math.min(105, Number(e.target.value) || 0)); }); const cond = el("select");
+COND.forEach(([v, t]) => { const o = el("option", null, t); o.value = v; if (((p.conditions || [])[0] || "") === v) o.selected = true; cond.appendChild(o); });
+cond.addEventListener("change", e => { p.conditions = e.target.value ? [e.target.value] : []; renderChips(); }); box.append(labelled("pe_name", "Name", name), labelled("pe_age", "Age", age), labelled("pe_cond", "Condition", cond)); const right = el("div", "box");
+[["cooks","Cooks"],["commutes","Travels daily"],["exercises","Exercises outdoors"]].forEach(([k, t]) => {
+const l = el("label"), c = el("input");
+c.type = "checkbox";
+c.checked = !!p[k];
+c.addEventListener("change", e => { p[k] = e.target.checked; });
+l.append(c, document.createTextNode(t));
+right.appendChild(l);
+});
+if (state.people.length > 1) {
+const rm = el("button", "rm", "Remove");
+rm.type = "button";
+rm.addEventListener("click", () => { state.people.splice(peopleSel, 1); peopleSel = Math.max(0, peopleSel - 1); renderChips(); renderPersonEdit(); });
+right.appendChild(rm);
+}
+box.appendChild(right);
+}
+const SEL_OPTS = { f_kind: [["apartment","Apartment / flat"],["independent","Independent house"],["single_room","Single room"]], f_exh: [["none","None"],["window","Window only"],["fan","Exhaust fan"],["chimney","Chimney to outdoors"]], f_clean: [["none","None"],["box_fan","Box-fan filter"],["hepa_small","Small HEPA"],["hepa_medium","Larger HEPA"]], f_fuel: [["lpg","LPG cylinder"],["png","Piped gas"],["electric","Electric / induction"],["biomass","Wood, dung or crop waste"],["kerosene","Kerosene"]], f_mask: [["none","None"],["cloth","Cloth"],["surgical","Surgical"],["kn95","KN95 / KF94"],["n95","N95, fitted"]], f_mode: [["two_wheeler","Two-wheeler"],["car_ac","Car, air-conditioned"],["car_open","Car, windows open"],["auto","Auto-rickshaw"],["bus","Bus"],["metro","Metro / train"],["cycle","Cycle"],["walk","Walk"],["wfh","Work from home"]]
+};
+function fillSelects(){ Object.keys(SEL_OPTS).forEach(id => { const sel = $("#" + id); if (!sel || sel.options.length) return; SEL_OPTS[id].forEach(([v, t]) => { const o = el("option", null, t); o.value = v; sel.appendChild(o); }); });
+}
+function renderCards(){
+const fuel = $("#fuelCards");
+fuel.textContent = "";
+FUELS.forEach(([v, t, s]) => {
+const l = el("label", "rcard"), i = el("input"), body = el("span", "rcbody", t);
+i.type = "radio"; i.name = "fuel"; i.value = v; i.checked = state.home.cooking_fuel === v;
+i.addEventListener("change", () => { if (i.checked) { state.home.cooking_fuel = v; $("#f_fuel").value = v; } });
+body.appendChild(el("small", null, s));
+l.append(i, body);
+fuel.appendChild(l);
+});
+const modeEl = $("#modeCards");
+modeEl.textContent = "";
+MODES.forEach(([v, t, s]) => {
+const l = el("label", "rcard"), i = el("input"), body = el("span", "rcbody", t);
+i.type = "radio"; i.name = "mode"; i.value = v; i.checked = state.transport.mode === v;
+i.addEventListener("change", () => { if (i.checked) { state.transport.mode = v; $("#f_mode").value = v; } });
+body.appendChild(el("small", null, s));
+l.append(i, body);
+modeEl.appendChild(l);
+});
+}
+function syncFull(){
+$("#f_kind").value = state.home.kind;
+$("#f_exh").value = state.home.kitchen_exhaust;
+$("#f_clean").value = state.home.cleaner;
+$("#f_fuel").value = state.home.cooking_fuel;
+$("#f_mode").value = state.transport.mode;
+$("#f_mask").value = state.transport.mask;
+$("#f_km").value = state.transport.km_per_day;
+$("#f_cookh").value = state.habits.cook_minutes;
+$("#f_cook1").value = (state.habits.cook_hours || [8, 20])[0];
+$("#f_cook2").value = (state.habits.cook_hours || [8, 20])[1];
+$("#f_burn").value = state.habits.waste_burning_kg_week;
+$("#f_coil").checked = !!state.habits.mosquito_coil;
+$("#f_incense").checked = state.habits.incense_per_day > 0;
+$("#f_sweep").checked = !!state.habits.dry_sweeping;
+$("#f_exercise").checked = !!state.habits.outdoor_exercise;
+$("#f_office").checked = !!state.office;
+}
+function readFull(){
+state.home.kind = $("#f_kind").value;
+state.home.kitchen_exhaust = $("#f_exh").value;
+state.home.cleaner = $("#f_clean").value;
+state.home.cooking_fuel = $("#f_fuel").value;
+state.transport.mode = $("#f_mode").value;
+state.transport.mask = $("#f_mask").value;
+state.transport.km_per_day = Number($("#f_km").value) || 0;
+state.habits.cook_minutes = Number($("#f_cookh").value) || 0;
+const h1 = Number($("#f_cook1").value), h2 = Number($("#f_cook2").value);
+state.habits.cook_hours = [Math.max(0, Math.min(23, Number.isFinite(h1) ? h1 : 8)), Math.max(0, Math.min(23, Number.isFinite(h2) ? h2 : 20))];
+state.habits.waste_burning_kg_week = Number($("#f_burn").value) || 0;
+state.habits.mosquito_coil = $("#f_coil").checked;
+state.habits.incense_per_day = $("#f_incense").checked ? 2 : 0;
+state.habits.dry_sweeping = $("#f_sweep").checked;
+state.habits.outdoor_exercise = $("#f_exercise").checked;
+state.office = $("#f_office").checked;
+}
+$("#edSave").addEventListener("click", () => {
+readFull();
+state.home.occupants = state.people.length;
+const ok = saveHousehold();
+$("#saveNote").textContent = ok ? "Saved on this device. Recomputing…" : "Could not save here (private mode). Recomputing anyway…";
+renderChips();
+renderCards();
+$("#f_fuel").value = state.home.cooking_fuel;
+$("#f_mode").value = state.transport.mode;
+load();
+});
+["f_kind","f_exh","f_clean","f_fuel","f_mode","f_mask","f_km","f_cookh","f_cook1","f_cook2","f_burn",
+"f_coil","f_incense","f_sweep","f_exercise","f_office"].forEach(id => {
+const n = $("#" + id);
+if (!n) return;
+n.addEventListener("change", () => {
+readFull();
+if (id === "f_fuel" || id === "f_mode") renderCards();
+});
+}); /* boot */
+fillSelects();
+paintTheme();
+renderChips();
+renderPersonEdit();
+renderCards();
+syncFull();
 load();
 </script>
 </body>

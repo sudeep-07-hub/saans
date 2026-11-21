@@ -59,6 +59,10 @@ class Ambient:
     label: str = "modelled"
     source: str = "assumption"
     hourly: list = field(default_factory=list)  # [{hour, pm25}]
+    # The local hour the reading was taken at, straight from upstream. This has
+    # to be stored rather than inferred: hourly starts at midnight, so reading
+    # the first row's hour gives 0 at every hour of the day.
+    obs_hour: int | None = None
 
     def at_hour(self, hour: float) -> float:
         """Ambient PM2.5 at a given local hour, from the forecast if we have it."""
@@ -651,15 +655,39 @@ def worst_hour(ambient: Ambient) -> dict:
 
 
 def _local_hour(ambient: Ambient) -> int | None:
-    """The local hour at the location, when the upstream model tells us the time."""
+    """
+    The local hour now, at the location being modelled.
+
+    Two wrong ways to do this, both of which shipped:
+      - reading `hourly[0]["hour"]`, which is always 0, because the series
+        starts at midnight;
+      - using the server's own clock, which on this machine is IST but would be
+        whatever the host is set to for any other location.
+
+    The upstream answer is the only one that is right by construction, because
+    the request carries `timezone=auto` and the response echoes the local
+    observation time.
+    """
+    if ambient.obs_hour is not None:
+        return int(ambient.obs_hour) % 24
+    # Older callers and test fixtures that build an Ambient by hand still work.
     for row in ambient.hourly:
         t = row.get("time")
-        if isinstance(t, str) and "T" in t and len(t) >= 13:
+        if isinstance(t, str) and "T" in t and len(t) >= 13 and not t.startswith("--"):
             try:
                 return int(t[11:13])
             except ValueError:
-                return None
+                break
     return None
+
+
+def _now_hour(ambient: Ambient) -> int:
+    """The current local hour, with a documented last-resort fallback."""
+    h = _local_hour(ambient)
+    if h is not None:
+        return h
+    from datetime import datetime
+    return datetime.now().hour
 
 
 def next_hours(ambient: Ambient, count: int = 6) -> list[dict]:
@@ -675,12 +703,7 @@ def next_hours(ambient: Ambient, count: int = 6) -> list[dict]:
     hours = _hour_series(ambient)
     if not hours:
         return []
-    now = _local_hour(ambient)
-    if now is None:
-        # No clock from upstream: fall back to the system clock. Wrong by a few
-        # hours at most, and the caller labels this as modelled rather than live.
-        from datetime import datetime
-        now = datetime.now().hour
+    now = _now_hour(ambient)
     forward = [h for h in hours if h["hour"] >= now][:count]
     if len(forward) < count:                      # wrap past midnight
         forward += [h for h in hours if h["hour"] < now][: count - len(forward)]
@@ -693,13 +716,17 @@ def next_trough(ambient: Ambient, within: int = 12) -> dict | None:
 
     Returns the lowest point in the forward window, so a user at 23:00 is told
     about tomorrow afternoon rather than about a trough that passed eight hours
-    ago.
+    ago. When that low point is the reading in hand, `hour` is None and
+    `is_now` is true: upstream observations lag by up to an hour, so naming a
+    clock hour there would name a time that has already gone.
     """
     fwd = next_hours(ambient, within)
     if not fwd:
         return None
     low = min(fwd, key=lambda r: r["pm25"])
-    return {"hour": low["hour"], "pm25": round(low["pm25"], 1)}
+    if abs(low["pm25"] - ambient.pm25) < 0.5:
+        return {"hour": None, "pm25": round(low["pm25"], 1), "is_now": True}
+    return {"hour": low["hour"], "pm25": round(low["pm25"], 1), "is_now": False}
 
 
 def next_peak(ambient: Ambient, within: int = 12) -> dict | None:
@@ -708,7 +735,7 @@ def next_peak(ambient: Ambient, within: int = 12) -> dict | None:
     if not fwd:
         return None
     high = max(fwd, key=lambda r: r["pm25"])
-    return {"hour": high["hour"], "pm25": round(high["pm25"], 1)}
+    return {"hour": high["hour"], "pm25": round(high["pm25"], 1), "is_now": False}
 
 
 def is_elevated_now(ambient: Ambient, share: float = 0.85) -> bool:
@@ -746,9 +773,22 @@ def cleanest_hour(ambient: Ambient, morning_only: bool = False) -> dict:
 
 
 def _hour_series(ambient: Ambient) -> list[dict]:
+    """
+    A single day's worth of hours, 0-23, using TODAY's forecast for each hour.
+
+    Not an average across days: the response covers 48 hours, and averaging the
+    two days flattened the evening peak of the day the reader is actually
+    living through.
+    """
     if ambient.hourly:
-        by_hour: dict[int, list[float]] = {}
+        by_hour: dict[int, float] = {}
         for r in ambient.hourly:
-            by_hour.setdefault(int(r.get("hour") or 0), []).append(float(r.get("pm25") or 0))
-        return [{"hour": h, "pm25": sum(v) / len(v)} for h, v in sorted(by_hour.items())]
+            h = int(r.get("hour") or 0)
+            t = r.get("time")
+            # First row seen for an hour wins, and the series is in date order,
+            # so this keeps today rather than tomorrow.
+            if h not in by_hour and r.get("pm25") is not None:
+                by_hour[h] = float(r.get("pm25") or 0)
+        if by_hour:
+            return [{"hour": h, "pm25": by_hour[h]} for h in sorted(by_hour)]
     return [{"hour": h, "pm25": ambient.at_hour(h)} for h in range(24)]

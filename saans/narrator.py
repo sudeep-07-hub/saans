@@ -52,11 +52,12 @@ Rules:
 6. Be specific to this household: name the people, their fuel, who is vulnerable, when their air peaks.
 7. If they burn wood, dung or kerosene, say plainly that their own stove is the biggest source they control. No shame, no lecture.
 8. Plain short sentences, concrete nouns. Local words where clearer (chulha, autowala, geyser). No emoji, no markdown.
+9. On children, the fact sheet states the school's own verdict. Restate that verdict only. You may not say a child stays home, misses school or is kept indoors unless the fact sheet says so: the household never told anyone that, and inventing it contradicts the advice printed beside yours.
 
 Reply with JSON only, no fences, no commentary:
-{
+ {
   "opening": "2-3 sentences on what today means for this household, naming the people and the air",
-  "for_children": "one short paragraph if there are children in the household, else an empty string",
+  "for_children": "one short paragraph restating the school verdict from the fact sheet if there are children, else an empty string",
   "what_this_does_not_fix": "one honest paragraph about the limits of household action"
 }"""
 
@@ -222,10 +223,29 @@ def skeleton(brief: dict, ranked: list[dict], people: list[dict],
     # The one thing must be an item the family actually sees in the list, and
     # must be the item the ranking puts first, in the ranking's own words.
     top = by_key.get(ranked[0]["key"]) if ranked else None
+    # The headline hour pair must be the FORWARD window, not the daily extremum.
+    # worst_hour is a max over 0-23 and best_hour a min, so at 14:00 the screen
+    # was printing "cleanest hour 13:00" (87 minutes gone) beside "dirtiest hour
+    # 23:00". Both now come from the same forward view the verdict uses.
+    trough = brief.get("next_trough") or {}
+    peak = brief.get("next_peak") or {}
+    if trough.get("hour") is not None:
+        clean_hour = clock(trough["hour"])
+        clean_val = trough.get("pm25")
+    else:
+        clean_hour = "now"
+        clean_val = trough.get("pm25", brief["ambient_pm25"])
+    peak_hour = clock(peak["hour"]) if peak.get("hour") is not None else clock(brief["worst_hour"]["hour"])
+    if peak.get("pm25") is not None:
+        peak_val = peak["pm25"]
+    else:
+        peak_val = brief["worst_hour"]["pm25"]
     return {
         "items": items[:6],
-        "peak_hour": clock(brief["worst_hour"]["hour"]),
-        "clean_hour": morning,
+        "peak_hour": peak_hour,
+        "peak_val": peak_val,
+        "clean_hour": clean_hour,
+        "clean_val": clean_val,
         "top": top,
     }
 
@@ -240,7 +260,19 @@ def fact_sheet(brief: dict, ranked: list[dict], household: dict, people: list[di
     L: list[str] = []
     a = brief["aqi"]
     L.append("PLACE: " + str(profile.get("city", "your city")))
-    L.append("TIME: " + str(brief.get("stamp", "")))
+    # The weekday is spelled out because the model cannot derive it from a
+    # timestamp: given "2026-11-21 14:22 IST" a 4B model wrote "This Tuesday" on
+    # a Saturday. Naming it converts a guess into a read.
+    _stamp = str(brief.get("stamp", ""))
+    _wd = ""
+    try:
+        from datetime import datetime as _dt
+        _wd = _dt.strptime(_stamp[:10], "%Y-%m-%d").strftime("%A")
+    except (ValueError, TypeError):
+        _wd = ""
+    L.append("TIME: " + _stamp + (f" ({_wd})" if _wd else ""))
+    if _wd:
+        L.append("WEEKDAY: " + _wd)
     L.append("")
     L.append("TODAY'S AIR")
     L.append(f"- Outdoor PM2.5: {brief['ambient_pm25']:g} ug/m3 ({brief['ambient_label']})")
@@ -248,10 +280,17 @@ def fact_sheet(brief: dict, ranked: list[dict], household: dict, people: list[di
     L.append(f"- WHO 24-hour guideline is 15 ug/m3; today is {brief['who']['multiple']}x that.")
     L.append(f"- Indoor PM2.5, modelled: {brief['indoor_pm25']:g} ug/m3")
     L.append(f"- Kitchen PM2.5 while cooking: {brief['kitchen_pm25']:g} ug/m3")
-    L.append(f"- Dirtiest hour: {plan['peak_hour']} at {brief['worst_hour']['pm25']:g} ug/m3")
-    L.append(f"- Cleanest hour: {plan['clean_hour']} at {brief['best_hour']['pm25']:g} ug/m3")
+    L.append(f"- Dirtiest hour: {plan['peak_hour']} at {plan.get('peak_val', brief['worst_hour']['pm25']):g} ug/m3")
+    L.append(f"- Cleanest hour: {plan['clean_hour']} at {plan.get('clean_val', brief['best_hour']['pm25']):g} ug/m3")
     if brief["grap"].get("applies"):
         L.append(f"- {brief['grap']['label']}. {brief['grap']['detail']}")
+    # The school verdict is the engine's, and the model is asked to restate it.
+    # Without it here the model invented "the child stays home all day" while
+    # the screen beside it printed "Normal outdoor play is fine".
+    _sch = brief.get("school") or {}
+    if _sch.get("applies"):
+        L.append(f"- School and outdoor play verdict: {_sch.get('advice', '')} "
+                 f"(level: {_sch.get('level', 'unknown')}; source: {_sch.get('source', 'CPCB')})")
     L.append("")
     L.append("THE PEOPLE")
     for p in people:
@@ -443,7 +482,16 @@ _BANNED = re.compile(
     r"\bsafe(?:ly)?\b"
     r"|\b(will|would|going to)\s+(step|go|leave|head)\s+out\b"
     r"|\b(you|they|he|she|we|it)\s*,?\s+(will|would)\s+\w+"
-    r"|\b([A-Z][a-z]{2,12})\s*,?\s+(will|would)\s+\w+",
+    r"|\b([A-Z][a-z]{2,12})\s*,?\s+(will|would)\s+\w+"
+    # School and staying-home claims. The engine owns the school verdict, and a
+    # child being kept home is a household decision nobody reported: a model
+    # wrote "the child stays home all day" on a day the screen beside it printed
+    # "Normal outdoor play is fine".
+    r"|\bstays?\s+(?:at\s+)?home\s+(?:all\s+day|today|from\s+school)\b"
+    r"|\bkept\s+(?:at\s+)?home\b"
+    r"|\bmiss(?:es|ing)?\s+school\b"
+    r"|\bmiss(?:es|ing)?\s+(?:a\s+day\s+of\s+)?(?:class|classes)\b"
+    r"|\bno\s+school\s+today\b",
     re.I,
 )
 
@@ -650,8 +698,8 @@ def assemble(text: dict, plan: dict, brief: dict, ranked: list[dict],
         {"label": "outdoor now", "value": f"{brief['ambient_pm25']:g}", "unit": "µg/m³"},
         {"label": "times WHO 24h", "value": f"{brief['who']['multiple']:g}", "unit": "×"},
         {"label": "indoors", "value": f"{brief['indoor_pm25']:g}", "unit": "µg/m³"},
-        {"label": "dirtiest hour", "value": plan["peak_hour"], "unit": f"{brief['worst_hour']['pm25']:g} µg/m³"},
-        {"label": "cleanest hour", "value": plan["clean_hour"], "unit": f"{brief['best_hour']['pm25']:g} µg/m³"},
+        {"label": "dirtiest hour", "value": plan["peak_hour"], "unit": f"{plan.get('peak_val', brief['worst_hour']['pm25']):g} µg/m³"},
+        {"label": "cleanest hour", "value": plan["clean_hour"], "unit": f"{plan.get('clean_val', brief['best_hour']['pm25']):g} µg/m³"},
     ]
     band = top["band_pct"] if top else ([chosen["effect"], chosen["effect"]] if chosen else [])
 
@@ -699,13 +747,24 @@ def deterministic_plan(brief: dict, ranked: list[dict], people: list[dict],
     if plan is None:
         plan = skeleton(brief, ranked, people, schedule)
     children = [p for p in people if p["age"] < 18]
+    # The children's paragraph must not contradict the school verdict printed
+    # beside it. The old text always said "keep their play indoors", which is
+    # wrong advice on a moderate day when the engine itself says normal outdoor
+    # play is fine.
+    _sch = brief.get("school") or {}
+    _advice = (_sch.get("advice") or "").strip()
+    if children and _advice:
+        _lead = ("Children take in more air per kilo than adults, so the same street costs them more. ")
+        _for_kids = _lead + f"The school guidance for today is: {_advice[0].lower() + _advice[1:]}"
+    elif children:
+        _for_kids = ("Children take in more air per kilo than adults, so the same street costs them more. "
+                     f"Outdoor air is at {brief['ambient_pm25']:g} ug/m3 today: watch the hour they play in, "
+                     "and keep the room they sleep in filtered.")
+    else:
+        _for_kids = ""
     text = {
         "opening": brief["headline"],
-        "for_children": (
-            "Children take in more air per kilo than adults, so the same street costs them more. "
-            f"Outdoor air is at {brief['ambient_pm25']:g} ug/m3 today: keep their play indoors or in the "
-            "afternoon lull, and keep the room they sleep in filtered."
-        ) if children else "",
+        "for_children": _for_kids,
         "what_this_does_not_fix": (
             "None of this cleans the city. A filter, a mask and a chimney reduce what your household "
             "breathes and what it emits; the street outside stays as it is until the sources change."

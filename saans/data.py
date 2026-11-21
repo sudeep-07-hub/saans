@@ -118,6 +118,16 @@ def fetch_ambient(lat: float, lon: float, label: str = "", tz: str = "auto") -> 
             amb.label = (aq.get("timezone_abbreviation") or "local") + " CAMS model"
             amb.source = "Open-Meteo / CAMS air quality model"
             live = True
+            # The observation time is the only trustworthy clock here: the
+            # hourly series begins at midnight, so its first row says hour 0 at
+            # any time of day. Keep the upstream hour so "what happens next"
+            # starts now rather than at 00:00.
+            ct = cur.get("time")
+            if isinstance(ct, str) and len(ct) >= 13:
+                try:
+                    amb.obs_hour = int(ct[11:13]) % 24
+                except ValueError:
+                    amb.obs_hour = None
         hourly = aq.get("hourly") or {}
         times = hourly.get("time") or []
         vals = hourly.get("pm2_5") or []

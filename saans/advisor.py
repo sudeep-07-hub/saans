@@ -566,6 +566,13 @@ def _headline(aqi: dict, ambient, indoor: float) -> str:
     return f"{ambient.pm25:g} ug/m3 outside, {indoor:g} inside. A good day to open the windows."
 
 
+def _trough_when(trough: dict) -> str:
+    """How to name the clean window: an hour, or 'now' when it is the reading in hand."""
+    if trough.get("hour") is None:
+        return "now"
+    return f"{trough['hour']:02d}:00"
+
+
 def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best,
                  trough=None, peak_next=None, elevated=False) -> list[dict]:
     acts: list[dict] = []
@@ -581,11 +588,17 @@ def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best,
         # about the past, and it is the fastest way to lose their trust.
         acts.append({"icon": "window", "text": "Keep the windows shut for now.",
                      "why": (f"Air is near today's peak ({ambient.pm25:g} ug/m3). "
-                             + (f"The next low is around {trough['hour']:02d}:00 at {trough['pm25']:g}."
+                             + (f"The next low is around {_trough_when(trough)} at {trough['pm25']:g}."
                                 if trough else ""))})
     elif aqi["aqi"] >= 201 and trough:
-        acts.append({"icon": "window", "text": f"Open the windows around {trough['hour']:02d}:00.",
-                     "why": (f"Air is easing now. {trough['hour']:02d}:00 is the cleanest window in the "
+        now_is_low = trough.get("hour") is None
+        acts.append({"icon": "window",
+                     "text": ("Open the windows now, while it is at its cleanest."
+                              if now_is_low else f"Open the windows around {_trough_when(trough)}."),
+                     "why": (f"Air is easing now and this is the cleanest point in the "
+                             f"next twelve hours, at {trough['pm25']:g} ug/m3."
+                             if now_is_low else
+                             f"Air is easing now. {_trough_when(trough)} is the cleanest window in the "
                              f"next twelve hours, at {trough['pm25']:g} ug/m3.")})
     if aqi["aqi"] >= 201:
         acts.append({"icon": "mask", "text": "N95 for anyone stepping out, children included.",
@@ -603,7 +616,7 @@ def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best,
                      "why": "You already own one. The gain is in running it through the night, door shut."})
     if habits.outdoor_exercise and aqi["aqi"] >= 201 and trough:
         acts.append({"icon": "run", "text": "Walk indoors today, or out at the afternoon low.",
-                     "why": (f"The next low is around {trough['hour']:02d}:00 at {trough['pm25']:g} ug/m3. "
+                     "why": (f"The next low is around {_trough_when(trough)} at {trough['pm25']:g} ug/m3. "
                              f"You inhale roughly twice as much air when exercising.")})
     if grap.get("applies"):
         acts.append({"icon": "gov", "text": grap["label"], "why": grap["detail"]})

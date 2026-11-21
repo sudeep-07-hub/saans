@@ -214,6 +214,39 @@ check("a comma before 'will' does not evade the ban",
       safe_out["opening"])
 check("the safe filter is reported", any("safe" in n for n in safe_notes))
 
+# --- 3c. the fact sheet carries what the model would otherwise invent -----
+_fs = narrator.fact_sheet(brief, ranked, brief.get("household") or {},
+                          ppl, brief.get("profile") or {}, day)
+# The fixture stamps "now" for determinism, so assert the behaviour with a real
+# date rather than requiring a weekday on a stamp that has none.
+_b = dict(brief); _b["stamp"] = "2026-11-21 14:22 IST"
+_fs_dated = narrator.fact_sheet(_b, ranked, _b.get("household") or {},
+                                ppl, _b.get("profile") or {}, day)
+check("a dated stamp yields a weekday the model can read", "WEEKDAY: Saturday" in _fs_dated,
+      next((l for l in _fs_dated.splitlines() if "WEEKDAY" in l), "no WEEKDAY line"))
+check("fact sheet carries the school verdict",
+      "School and outdoor play verdict" in _fs or not (brief.get("school") or {}).get("applies"),
+      "school verdict absent while school applies, so the model must guess")
+check("fact sheet hour pair comes from the forward window",
+      day["clean_hour"] == "now" or ":" in str(day["clean_hour"]),
+      f"clean={day['clean_hour']} peak={day['peak_hour']}")
+
+# --- 3b. invented school policy -------------------------------------------
+# A model wrote "The child stays home all day" on a day the screen beside it
+# printed "Normal outdoor play is fine". Keeping a child home is a household
+# decision nobody reported, so the sentence must not survive the filter.
+for bad in ("The child stays home all day.",
+            "She is kept home from school.",
+            "He misses school when the air is like this.",
+            "No school today for the little one."):
+    inv_text = {"opening": bad + " The air outside is {{OUT}}.",
+                "for_children": "", "what_this_does_not_fix": ""}
+    inv_out, _ = narrator.enforce(dict(inv_text), day, tmap, brief, ppl)
+    low = inv_out["opening"].lower()
+    check(f"invented school policy deleted: {bad[:30]!r}",
+          not any(k in low for k in ("home all day", "misses school", "no school today", "kept home")),
+          inv_out["opening"].strip()[:60])
+
 # --- 4. children paragraph is household-dependent -------------------------
 no_kids = narrator.assemble(
     {"opening": "x", "why": [], "one_thing_why": "", "for_children": "your child",

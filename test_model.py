@@ -226,6 +226,33 @@ check("no 'now' action refers to a peak that already passed",
       not any("until the late-morning" in a["text"] for a in _b["now"]),
       str([a["text"][:40] for a in _b["now"]]))
 
+# 14. THE CLOCK. Two bugs shipped here, both from inferring "now" instead of
+# reading it, so these assert the architecture rather than a value.
+#
+# (a) The hourly series starts at midnight, so its FIRST ROW is hour 0 at every
+#     hour of the day. Reading hourly[0] as "now" put the forward window at
+#     00:00 forever, and next_trough then reported an hour in the past.
+import copy as _copy
+a_obs = _copy.deepcopy(_day(21))
+a_obs.obs_hour = 15
+check("obs_hour is what next_hours trusts",
+      E.next_hours(a_obs, 1)[0]["hour"] == 15, str(E.next_hours(a_obs, 1)[0]))
+check("obs_hour overrides a midnight-first series",
+      E.next_trough(a_obs) is not None and E.next_trough(a_obs)["hour"] >= 15,
+      str(E.next_trough(a_obs)))
+
+# (b) A 48-hour series must not be averaged into a typical day: the evening peak
+#     of the day being lived through gets flattened, and the band on screen
+#     stops matching the number printed beside it.
+two_days = [{"hour": h, "pm25": v, "time": f"2026-11-21T{h:02d}:00"} for h, v in vals.items()]
+two_days += [{"hour": h, "pm25": v * 3, "time": f"2026-11-22T{h:02d}:00"} for h, v in vals.items()]
+a2 = Ambient(pm25=vals[15], hourly=two_days, obs_hour=15)
+ser = E._hour_series(a2)
+check("hour series keeps the same-day value, not the mean", len(ser) == 24, str(len(ser)))
+check("hour series does not blend tomorrow into today",
+      abs(dict((r["hour"], r["pm25"]) for r in ser)[15] - vals[15]) < 0.01,
+      f"{dict((r['hour'], r['pm25']) for r in ser)[15]} vs today-only {vals[15]}")
+
 # 12. Nothing may return a negative or absurd dose.
 for r in rank_lpg:
     check(f"{r['key']}: no negative dose", r["pct"] <= 100 and r["pct"] >= -1.0, str(r["pct"]))
