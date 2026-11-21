@@ -164,6 +164,30 @@ def main() -> int:
         brief = json.loads(raw)["brief"]
         for k in ("next_trough", "next_peak", "elevated_now"):
             check(f"brief still carries {k}", k in brief)
+
+        # The chart draws d.hourly; the legend quotes next_peak. If those two
+        # disagree the picture and the number contradict each other about
+        # tonight, which is exactly what happened when server._hourly averaged
+        # the 48-hour response into a typical day.
+        d = json.loads(raw)
+        series = {r["hour"]: r["pm25"] for r in (d.get("hourly") or [])}
+        peak = brief.get("next_peak") or {}
+        if series and peak.get("hour") is not None:
+            check("the chart's peak hour matches the legend's peak value",
+                  abs(series.get(peak["hour"], -1) - peak["pm25"]) < 1.5,
+                  f"chart[{peak['hour']}]={series.get(peak['hour'])} vs legend {peak['pm25']}")
+            check("the legend's peak really is the series maximum",
+                  max(series.values()) <= peak["pm25"] + 1.5,
+                  f"series max {max(series.values())} vs legend {peak['pm25']}")
+
+        # Every intervention in the API must be reachable on the page. The UI
+        # sliced to 9 of 14 with no control to reveal the rest. Asserting on
+        # source text is brittle (my own comment tripped it), so this checks
+        # that no truncating slice is applied to the ranked array.
+        ranked = d.get("ranked") or []
+        truncates = re.search(r"\(d\.ranked \|\| \[\]\)\.slice\(", html) is not None
+        check("the page does not truncate the ranking", not truncates,
+              f"{len(ranked)} ranked in the API")
     except Exception as exc:
         check("brief endpoint answers", False, str(exc)[:60])
 

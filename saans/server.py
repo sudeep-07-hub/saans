@@ -160,12 +160,17 @@ def to_models(h: Household):
 
 
 def _hourly(amb) -> list[dict]:
-    if amb.hourly:
-        by_hour: dict[int, list[float]] = {}
-        for r in amb.hourly:
-            by_hour.setdefault(int(r.get("hour") or 0), []).append(float(r.get("pm25") or 0))
-        return [{"hour": h, "pm25": round(sum(v) / len(v), 1)} for h, v in sorted(by_hour.items())]
-    return [{"hour": h, "pm25": round(amb.at_hour(h), 1)} for h in range(24)]
+    """
+    The 24-hour series the chart draws, one value per hour.
+
+    Delegates to the engine rather than reimplementing it. This was a second
+    copy, and it kept the bug I had already fixed in engine._hour_series:
+    averaging the 48-hour response into a typical day, which put the chart's
+    evening peak at 150 while the legend beside it — which reads next_peak —
+    said 211 at the same hour. The picture and the number disagreed about
+    tonight. One implementation means they cannot drift again.
+    """
+    return [{"hour": r["hour"], "pm25": round(r["pm25"], 1)} for r in E._hour_series(amb)]
 
 
 def build(h: Household) -> dict:

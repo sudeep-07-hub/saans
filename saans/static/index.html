@@ -514,7 +514,8 @@ body.appendChild(tr);
 function renderOptions(d){
 const box = $("#opts");
 box.textContent = "";
-(d.ranked || []).slice(0, 9).forEach((r, i) => {
+// All of them: slice(0,9) silently hid 5 of 14 with no way to reveal them.
+(d.ranked || []).forEach((r, i) => {
 const det = el("details", "opt"), sum = el("summary");
 sum.appendChild(el("span", "orank", pad2(i + 1)));
 const title = el("span", "otitle", r.title || "");
