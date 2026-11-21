@@ -650,14 +650,92 @@ def worst_hour(ambient: Ambient) -> dict:
     return {"hour": best["hour"], "pm25": round(best["pm25"], 1)}
 
 
+def _local_hour(ambient: Ambient) -> int | None:
+    """The local hour at the location, when the upstream model tells us the time."""
+    for row in ambient.hourly:
+        t = row.get("time")
+        if isinstance(t, str) and "T" in t and len(t) >= 13:
+            try:
+                return int(t[11:13])
+            except ValueError:
+                return None
+    return None
+
+
+def next_hours(ambient: Ambient, count: int = 6) -> list[dict]:
+    """
+    The next few hours, starting now.
+
+    This exists because `worst_hour` is a maximum over the whole 0-23 series,
+    which at 21:00 returns 21:00 even though the actual peak was 07:00 and the
+    advice built on it ("keep windows shut until the lull") is then about the
+    past. A daily-use screen has to answer *what happens next*, so it needs the
+    forward window, not the daily extremum.
+    """
+    hours = _hour_series(ambient)
+    if not hours:
+        return []
+    now = _local_hour(ambient)
+    if now is None:
+        # No clock from upstream: fall back to the system clock. Wrong by a few
+        # hours at most, and the caller labels this as modelled rather than live.
+        from datetime import datetime
+        now = datetime.now().hour
+    forward = [h for h in hours if h["hour"] >= now][:count]
+    if len(forward) < count:                      # wrap past midnight
+        forward += [h for h in hours if h["hour"] < now][: count - len(forward)]
+    return forward
+
+
+def next_trough(ambient: Ambient, within: int = 12) -> dict | None:
+    """
+    The next genuinely clean window, which is what a ventilation decision needs.
+
+    Returns the lowest point in the forward window, so a user at 23:00 is told
+    about tomorrow afternoon rather than about a trough that passed eight hours
+    ago.
+    """
+    fwd = next_hours(ambient, within)
+    if not fwd:
+        return None
+    low = min(fwd, key=lambda r: r["pm25"])
+    return {"hour": low["hour"], "pm25": round(low["pm25"], 1)}
+
+
+def next_peak(ambient: Ambient, within: int = 12) -> dict | None:
+    """The next rise worth bracing for, in the forward window."""
+    fwd = next_hours(ambient, within)
+    if not fwd:
+        return None
+    high = max(fwd, key=lambda r: r["pm25"])
+    return {"hour": high["hour"], "pm25": round(high["pm25"], 1)}
+
+
+def is_elevated_now(ambient: Ambient, share: float = 0.85) -> bool:
+    """
+    Is the air right now near the day's own worst, rather than in a lull?
+
+    Relative, not absolute: 60 ug/m3 is a lull in Delhi in November and an
+    emergency in London in July. The question the UI asks is "should I keep the
+    windows shut", and the honest answer depends on whether we are near this
+    day's peak.
+    """
+    hours = _hour_series(ambient)
+    if not hours:
+        return False
+    current = ambient.pm25
+    peak = max(r["pm25"] for r in hours) or current
+    return current >= peak * share
+
+
 def cleanest_hour(ambient: Ambient, morning_only: bool = False) -> dict:
     """
-    The cleanest hour to open the windows.
+    The cleanest hour of the whole day.
 
     Defaults to the whole day rather than the morning, because in a winter
     inversion the morning is usually the worst part of it: the cleanest window
     is typically mid-afternoon, and recommending the morning would be exactly
-    backwards.
+    backwards. For "what should I do next", use `next_trough` instead.
     """
     hours = _hour_series(ambient)
     if morning_only:

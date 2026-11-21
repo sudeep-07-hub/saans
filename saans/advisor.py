@@ -513,6 +513,9 @@ def daily_brief(ambient, home, habits, tr, people, profile, office=True, ncr: bo
     kitchen = E.kitchen_concentration(max(ambient.pm25, 60), home, habits)
     worst = E.worst_hour(ambient)
     best = E.cleanest_hour(ambient)
+    trough = E.next_trough(ambient)
+    peak_next = E.next_peak(ambient)
+    elevated = E.is_elevated_now(ambient)
 
     children = [p for p in people if p.age < 13]
     elders = [p for p in people if p.age >= 65]
@@ -529,13 +532,20 @@ def daily_brief(ambient, home, habits, tr, people, profile, office=True, ncr: bo
         "kitchen_pm25": kitchen,
         "worst_hour": worst,
         "best_hour": best,
+        # The forward window. `worst_hour` and `best_hour` are extrema over the
+        # whole 0-23 series and are therefore often in the past; a daily screen
+        # has to answer "what happens next", which is these two.
+        "next_trough": trough,
+        "next_peak": peak_next,
+        "elevated_now": elevated,
         "household": base,
         "children_at_risk": [p.name for p in children],
         "elders_at_risk": [p.name for p in elders],
         "sensitive_people": [{"name": p.name, "sensitivity": p.sensitivity} for p in sensitive],
         "profile": profile,
         "headline": _headline(aqi, ambient, indoor),
-        "now": _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best),
+        "now": _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best,
+                            trough=trough, peak_next=peak_next, elevated=elevated),
     }
 
 
@@ -556,7 +566,8 @@ def _headline(aqi: dict, ambient, indoor: float) -> str:
     return f"{ambient.pm25:g} ug/m3 outside, {indoor:g} inside. A good day to open the windows."
 
 
-def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best) -> list[dict]:
+def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best,
+                 trough=None, peak_next=None, elevated=False) -> list[dict]:
     acts: list[dict] = []
     # A kitchen with no extraction and a gas flame is still the strongest
     # indoor source in most homes, even when the stove is not a biomass one.
@@ -564,9 +575,19 @@ def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best) -> list[
         acts.append({"icon": "stove", "text": "Cook with the kitchen window wide open and the door shut.",
                      "why": ("Even on gas, cooking adds 40-70 ug/m3 indoors. With no exhaust, the open "
                              "window is the free version, and the shut door keeps it out of the beds.")})
+    if aqi["aqi"] >= 201 and elevated:
+        # Only while it is actually elevated. Telling someone at 20:00 to "keep
+        # windows shut until the lull" when the peak was at 07:00 is advice
+        # about the past, and it is the fastest way to lose their trust.
+        acts.append({"icon": "window", "text": "Keep the windows shut for now.",
+                     "why": (f"Air is near today's peak ({ambient.pm25:g} ug/m3). "
+                             + (f"The next low is around {trough['hour']:02d}:00 at {trough['pm25']:g}."
+                                if trough else ""))})
+    elif aqi["aqi"] >= 201 and trough:
+        acts.append({"icon": "window", "text": f"Open the windows around {trough['hour']:02d}:00.",
+                     "why": (f"Air is easing now. {trough['hour']:02d}:00 is the cleanest window in the "
+                             f"next twelve hours, at {trough['pm25']:g} ug/m3.")})
     if aqi["aqi"] >= 201:
-        acts.append({"icon": "window", "text": "Keep windows shut until the late-morning lull.",
-                     "why": f"Peak is around {worst['hour']:02d}:00 at {worst['pm25']:g} ug/m3."})
         acts.append({"icon": "mask", "text": "N95 for anyone stepping out, children included.",
                      "why": "A fitted N95 removes about 97% of fine particles; cloth removes about half."})
     if home.cooking_fuel in ("biomass", "kerosene"):
@@ -580,9 +601,10 @@ def _now_actions(aqi, grap, ambient, indoor, home, habits, worst, best) -> list[
     elif indoor > 60 and home.cleaner != "none":
         acts.append({"icon": "filter", "text": "Filter running in the bedroom from an hour before bed.",
                      "why": "You already own one. The gain is in running it through the night, door shut."})
-    if habits.outdoor_exercise and aqi["aqi"] >= 201:
-        acts.append({"icon": "run", "text": "Walk indoors today, or at the afternoon low.",
-                     "why": f"Cleanest hour is around {best['hour']:02d}:00 at {best['pm25']:g} ug/m3."})
+    if habits.outdoor_exercise and aqi["aqi"] >= 201 and trough:
+        acts.append({"icon": "run", "text": "Walk indoors today, or out at the afternoon low.",
+                     "why": (f"The next low is around {trough['hour']:02d}:00 at {trough['pm25']:g} ug/m3. "
+                             f"You inhale roughly twice as much air when exercising.")})
     if grap.get("applies"):
         acts.append({"icon": "gov", "text": grap["label"], "why": grap["detail"]})
     return acts

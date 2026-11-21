@@ -184,6 +184,48 @@ afternoon = off.at_hour(15)
 check("offline hour model has a morning peak above afternoon", morning > afternoon,
       f"{morning:.0f} vs {afternoon:.0f}")
 
+# 12. The forward window must not report the past.
+# `worst_hour` is a maximum over the whole day, so at 21:00 it returns 07:00 —
+# fourteen hours gone. Any advice built on it ("keep windows shut until the
+# lull") is then about the past, which is the fastest way to lose a user's
+# trust in a daily app. next_peak/next_trough look forward only.
+vals = {0: 100, 1: 105, 2: 100, 3: 95, 4: 98, 5: 150, 6: 210, 7: 230, 8: 200,
+        9: 180, 10: 150, 11: 135, 12: 120, 13: 95, 14: 80, 15: 66, 16: 70,
+        17: 100, 18: 140, 19: 170, 20: 190, 21: 200, 22: 208, 23: 216}
+
+
+def _day(start: int) -> Ambient:
+    rows = [{"hour": (start + i) % 24, "pm25": vals[(start + i) % 24],
+             "time": f"2026-11-20T{(start + i) % 24:02d}:00"} for i in range(24)]
+    return Ambient(pm25=vals[start], hourly=rows)
+
+
+a21 = _day(21)
+check("daily extremum can point at the past", E.worst_hour(a21)["hour"] == 7,
+      str(E.worst_hour(a21)))
+# From 21:00 the next peak really is 07:00 — but tomorrow, ten hours ahead, not
+# fourteen hours behind. Assert the distance, not the hour.
+_fwd = E.next_hours(a21, 24)
+check("forward window starts at the current hour", _fwd[0]["hour"] == 21, str(_fwd[0]))
+check("forward window does not begin with yesterday's peak", _fwd[0]["hour"] != 7, str(_fwd[0]))
+check("next_peak is the next rise, not the last one", E.next_peak(a21)["hour"] == 7,
+      f"{E.next_peak(a21)} (tomorrow 07:00 is correct; it is 10h ahead)")
+check("elevated_now true when near the day's peak", E.is_elevated_now(a21))
+a3 = _day(3)
+check("elevated_now false in the small hours", not E.is_elevated_now(a3),
+      f"now={a3.pm25} peak={max(vals.values())}")
+check("next_trough wraps past midnight when it must", E.next_trough(_day(23)) is not None,
+      str(E.next_trough(_day(23))))
+
+# 13. The daily brief exposes the forward fields the UI depends on.
+from saans import advisor as _adv
+_b = _adv.daily_brief(_day(21), home, hab, tr, people, {"city": "Delhi", "mid": {}}, True)
+for k in ("next_trough", "next_peak", "elevated_now"):
+    check(f"brief carries {k}", k in _b, str(_b.get(k))[:40])
+check("no 'now' action refers to a peak that already passed",
+      not any("until the late-morning" in a["text"] for a in _b["now"]),
+      str([a["text"][:40] for a in _b["now"]]))
+
 # 12. Nothing may return a negative or absurd dose.
 for r in rank_lpg:
     check(f"{r['key']}: no negative dose", r["pct"] <= 100 and r["pct"] >= -1.0, str(r["pct"]))
