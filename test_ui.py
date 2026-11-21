@@ -106,20 +106,24 @@ def main() -> int:
           bool(re.search(r'role="img"[^>]*aria-labelledby="(\w+)"', html))
           and bool(re.search(r'aria-labelledby="\w+"', html)),
           (re.search(r'role="img" aria-labelledby="(\w+)"', html) or [""])[0])
-    # The three numbers, by their small-caps labels rather than by invented ids.
-    for label in ("outside", "inside", "kitchen"):
-        check(f"a {label} figure is present",
-              bool(re.search(rf'>\s*{label}\s*<', html, re.I)) or f'"{label}"' in html)
-    check("worst-off person line exists",
-          bool(re.search(r'id="(person|heaviest|worst-person)"', html)),
-          (re.search(r'id="(person|heaviest|worst-person)"', html) or [""])[0])
+    # The three concentrations, by the words the ladder uses rather than by ids
+    # I invented in an earlier version. The redesign renamed them; the contract
+    # is that a household can see outdoor, indoor and stove concentrations.
+    for label in ("outdoor", "indoors", "stove"):
+        check(f"the {label} concentration is shown",
+              bool(re.search(rf'"{label}"', html)) or bool(re.search(rf'>{label}<', html, re.I))
+              or (label == "stove" and "the stove" in html))
+    check("a worst-off person line exists",
+          bool(re.search(r'id="(personNote|person|heaviest)"', html)),
+          (re.search(r'id="(personNote|person|heaviest)"', html) or [""])[0])
     check("localStorage is used for memory", "localStorage" in html)
     check("storage access is guarded",
-          re.search(r"try\s*\{[^}]*localStorage", html, re.S) is not None
-          or "function get(" in html and "catch" in html)
-    # Null-hour troughs must not render as "00:00", which names a past time.
+          re.search(r"try\s*\{[^}]*localStorage", html, re.S) is not None)
+    # A null trough hour means the cleanest point is the reading in hand; the
+    # page must not print "00:00" there. Matched loosely because the variable
+    # name differs between the chart, the verdict and the plan.
     check("trough hour null is handled, not printed as 00",
-          "trough.hour === null" in html or "trough.hour === undefined" in html)
+          bool(re.search(r"\.hour === null", html)))
 
     # --- must not claim safety --------------------------------------------
     prose = re.sub(r"<script[\s\S]*?</script>", "", html, flags=re.I)
@@ -138,7 +142,7 @@ def main() -> int:
                 r = contrast(vars_[fg], vars_[bg])
                 check(f"light contrast {fg} on {bg} >= 4.5", r >= 4.5, f"{r}:1")
     dark = re.search(r"prefers-color-scheme:\s*dark\s*\)\s*\{(.*?)\}", html, re.S)
-    data_dark = re.search(r':root\[data-theme="dark"\]\s*\{(.*?)\}', html, re.S)
+    data_dark = re.search(r'(?::root|html)\[data-theme="dark"\]\s*\{(.*?)\}', html, re.S)
     # A manual theme toggle needs data-theme selectors, which is a better
     # implementation than a bare media query — accept either.
     check("dark mode defines its own surface tokens", dark is not None or data_dark is not None)

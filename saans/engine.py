@@ -710,7 +710,7 @@ def next_hours(ambient: Ambient, count: int = 6) -> list[dict]:
     return forward
 
 
-def next_trough(ambient: Ambient, within: int = 12) -> dict | None:
+def next_trough(ambient: Ambient, within: int = 18) -> dict | None:
     """
     The next genuinely clean window, which is what a ventilation decision needs.
 
@@ -719,6 +719,12 @@ def next_trough(ambient: Ambient, within: int = 12) -> dict | None:
     ago. When that low point is the reading in hand, `hour` is None and
     `is_now` is true: upstream observations lag by up to an hour, so naming a
     clock hour there would name a time that has already gone.
+
+    The window is 18 hours, not 12. At 22:00 a 12-hour window stops at 10:00 and
+    cannot see the afternoon trough, so it reported 08:00 at 134 ug/m3 as the
+    "cleanest" point when the day's actual low was 12:00 at 72 — advice that
+    told a family to ventilate at the second-best hour because the best one was
+    a few hours past the horizon.
     """
     fwd = next_hours(ambient, within)
     if not fwd:

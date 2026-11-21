@@ -165,7 +165,30 @@ def skeleton(brief: dict, ranked: list[dict], people: list[dict],
         add(key, when, action, order)
 
     morning = clock(brief["best_hour"]["hour"])
-    waking = clock(6.5)
+
+    # The household's own cooking hour, taken from the schedule this function was
+    # already given, not a guessed 06:30. A family that cooks at 08:00 and 20:00
+    # was being told to open the window "from 06:30", a time when nobody is at
+    # the stove.
+    def cook_clock() -> str:
+        # Read the household's own cooking start from whatever the caller had:
+        # the schedule if one was passed, otherwise the blocks on the people in
+        # the brief. At the real call site `schedule` is never supplied, so
+        # relying on it alone silently fell back to a guessed 07:00.
+        hours: set[int] = set()
+        for x in (schedule or []):
+            st = x.get("start")
+            if x.get("cooking") and isinstance(st, (int, float)) and 0 <= round(float(st)) <= 23:
+                hours.add(int(round(float(st))))
+        if not hours:
+            for p in ((brief.get("household") or {}).get("people") or people or []):
+                for blk in (p.get("blocks") or []):
+                    st = blk.get("start")
+                    if blk.get("cooking") and isinstance(st, (int, float)) and 0 <= round(float(st)) <= 23:
+                        hours.add(int(round(float(st))))
+        return clock(sorted(hours)[0]) if hours else clock(7)
+
+    waking = cook_clock()
 
     # Morning: the first thing they do, and the biggest lever if they cook.
     if brief["kitchen_pm25"] > 90:
@@ -500,13 +523,22 @@ def _verified_literals(token_map: dict[str, str]) -> set[str]:
     """
     The numbers that need no mask, because a token already carries them.
 
-    Deliberately does NOT include ages or clock hours — those are matched by
-    pattern in `_scrub_patterns`, where their meaning is unambiguous. Adding
-    them here as bare numbers would allow any small integer through.
+    Clock hours are stripped BEFORE harvesting. A token whose value is "22:00"
+    was putting bare "22" into this set, which then allowed "Only 22 minutes of
+    exposure" through — a fabricated figure licensed by an unrelated clock time.
+    Clock times are matched by pattern in `_scrub_patterns`, so they lose
+    nothing by being excluded here; a bare hour with no colon never had a claim
+    to legitimacy.
     """
     lit: set[str] = set()
     for v in token_map.values():
-        lit |= set(re.findall(r"\d{1,4}(?:\.\d+)?", str(v)))
+        # Drop clock times first: "22:00" must not license "22".
+        cleaned = re.sub(r"\b(?:[01]?\d|2[0-3]):[0-5]\d\b", " ", str(v))
+        lit |= set(re.findall(r"\d{1,4}(?:\.\d+)?", cleaned))
+    # A bare 0-23 is indistinguishable from a clock hour, and clock hours are
+    # masked by pattern where they are unambiguous. Leaving them in the allowlist
+    # would let any small integer through as "verified".
+    lit = {x for x in lit if not (x.isdigit() and 0 <= int(x) <= 23)}
     return lit
 
 
