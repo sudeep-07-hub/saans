@@ -635,7 +635,7 @@ function renderPicks(d) {
     if (r.effort) meta.push(r.effort);
     if (meta.length) t.appendChild(el("em", null, meta.join(" · ")));
     btn.appendChild(t);
-    const c = el("span", "pc", r.pct > 0 ? "−" + r.pct + "%" : "—");
+    const c = el("span", "pc", r.pct > 0 ? "−" + r.pct + "%" : (r.unquantified ? "n/c" : "n/a"));
     if (r.cost_inr) c.appendChild(el("s", null, inr(r.cost_inr)));
     btn.appendChild(c);
     btn.addEventListener("click", () => {
@@ -897,9 +897,20 @@ function renderOptions(d) {
       t.appendChild(el("span", "who", "biggest gain for " + r.worst_person + ": " + r.worst_pct + "%"));
     sum.appendChild(t);
     const p = el("div", "op");
-    p.appendChild(el("span", null, r.pct > 0 ? "−" + r.pct + "%" : "—"));
-    if (r.band_pct && r.band_pct.length >= 2)
-      p.appendChild(el("small", null, r.band_pct[0] + "–" + r.band_pct[1] + "%"));
+    // A zero here does not mean "worthless": it means this household has nothing
+    // to change — no waste burning, no incense, no yard. Printing "−0.0%" with a
+    // "0.0–0.0%" band reads as broken software. Say which it is.
+    if (r.pct > 0) {
+      p.appendChild(el("span", null, "−" + r.pct + "%"));
+      if (r.band_pct && r.band_pct.length >= 2)
+        p.appendChild(el("small", null, r.band_pct[0] + "–" + r.band_pct[1] + "%"));
+    } else if (r.unquantified) {
+      p.appendChild(el("span", null, "—"));
+      p.appendChild(el("small", null, "not counted"));
+    } else {
+      p.appendChild(el("span", null, "—"));
+      p.appendChild(el("small", null, "nothing to change"));
+    }
     sum.appendChild(p);
     const c = el("div", "oc");
     c.appendChild(el("span", null, inr(r.cost_inr)));
