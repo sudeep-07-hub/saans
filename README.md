@@ -20,9 +20,10 @@ ollama pull qwen3:4b
 Without it the app still runs and produces the same plan in plainer prose.
 
 ```bash
-python test_model.py      # 71 checks — exposure arithmetic
-python test_narrator.py   # 53 checks — the language boundary
-python test_security.py   # 47 checks — headers, validation, injection
+python test_model.py      # 86 checks — exposure arithmetic and the clock
+python test_narrator.py   # 70 checks — the language boundary
+python test_security.py   # 48 checks — headers, validation, injection
+python test_ui.py         # 41 checks — the served file against the design
 ```
 
 ---
@@ -121,42 +122,38 @@ and the model never touches them.
 
 ### The screen
 
-**The verdict line** — one sentence, the household's own numbers, and the action
-implied by them. The colour of the entire page is taken from the CPCB AQI
-category, so the page looks like the air.
+The interface is built around one claim: **your exposure is not your city's AQI,
+it is where you are and when.** A city-level number cannot separate a child on
+the street from a grandmother at the stove. So the page leads with the household
+and answers three questions at three depths.
 
-**Right now** — the handful of things that matter in the next few hours, each
-with its mechanism. Not a list of tips: a list of reasons.
+**Level 1 — the verdict.** One screen, no scroll, on a phone in a cold kitchen.
+A single imperative sentence — *keep them shut until about 11:00* — rather than a
+metric with a label, because a household can act on an instruction and cannot act
+on "324, Very Poor". Below it, **the day band**: the outdoor curve, the indoor
+line and the cooking peaks on one 24-hour axis, with a marker at now. The gap
+between those lines is the product. Then the three numbers (outside / inside /
+kitchen), the one person carrying the most of it, and two ways in.
 
-**Today's plan** — generated from a fact sheet Python built. Actions in the order
-a family will live them (morning, commute, meals, afternoon, night), with the
-single biggest one flagged separately. A plan sorted by impact is a ranking, not
-a plan.
+The verdict is derived from `elevated_now` and the **forward window**
+(`next_trough`, `next_peak`), never from `worst_hour`/`best_hour` — those are
+extrema over the whole day and are usually in the past. At 21:00 `worst_hour`
+returns 07:00, and advice built on it is advice about the past.
 
-**The 24-hour ribbon** — the mean concentration the household is actually
-breathing, hour by hour, weighted by who is where. The morning inversion and the
-evening peak are visible, and so is the afternoon trough that is the ventilation
-window.
+**Level 2 — the day.** The generated plan in the order a family will live it,
+on a vertical time rail, with the single biggest action marked *the one thing*.
+The model's prose sits above and below the actions, never interleaved: the
+actions are the calculation's, and must not be mistaken for prose.
 
-**Who is carrying it** — per-person inhaled dose, and a share weighted by
-sensitivity (age, asthma, COPD, heart disease, pregnancy). This is how the app
-says "this kitchen is Amma's problem, not yours" without pretending to predict
-anyone's illness.
+**Level 3 — the numbers behind this.** The 14 interventions scored by measured
+benefit per rupee with each person's dose before and after; per-person inhaled
+dose and sensitivity share; source apportionment; the household's own emissions;
+and an evidence drawer listing all 56 constants with source and kind, generated
+from `constants.py` so code and documentation cannot drift.
 
-**What actually helps, in order** — 15 interventions scored by measured benefit
-per rupee, expandable to show each person's dose before and after.
-
-**Your air, by source** — source apportionment. For Delhi-NCR this is the
-TERI/ARAI 2018 measured study; elsewhere it is a named regional archetype,
-labelled as one rather than presented as local measurement.
-
-**What you put into it** — the household's own emissions, in grams of PM2.5 and
-kilograms of CO₂. A wood stove emits about 12 kg of PM2.5 a year; that number
-usually lands harder than any advisory.
-
-**Where the numbers come from** — an expandable drawer listing all 56 constants
-with source and kind, generated from `constants.py` so the code and the
-documentation cannot drift.
+The colour of the page is the CPCB AQI category, so the page looks like the air.
+Dark mode is a real palette with the accent re-derived per mode rather than
+inverted.
 
 ### Live data
 
@@ -167,7 +164,7 @@ labelled seasonal climatology and says so on screen.
 
 ### Efficiency
 
-`rank()` — 15 interventions × 3 uncertainty scenarios × every person's full day —
+`rank()` — 14 interventions × 3 uncertainty scenarios × every person's full day —
 takes 39 ms. A single `evaluate()` is 0.4 ms. Responses are cached 15 minutes.
 The whole front end is one HTML file with no dependencies and no build step.
 
@@ -220,17 +217,35 @@ that states them.
 
 ## 5. Quality, security, testing, accessibility
 
-### Testing — 171 automated checks
+### Testing — 245 automated checks
 
-- `test_model.py` (71): the CPCB index against the published worked examples
+Every number below is a real run, not an estimate. The counts moved as the
+defects they described were found and closed.
+
+- `test_model.py` (86): the CPCB index against the published worked examples
   (31→51, 45→75, 60→100 µg/m³), GRAP thresholds, hand-computed mass balance,
   HEPA reduction, 24-hour day closure for every person, biomass emissions against
-  field factors, and geography boundary tests.
-- `test_narrator.py` (53): adversarial input to the language boundary — raw
-  digits, invented tokens, reassurance, behaviour claims, domain names with
-  digits — asserting none survives and that the legitimate shapes do.
-- `test_security.py` (47): headers actually received, docs disabled, path
-  traversal, 14 validation cases, unknown-intervention 404, SSE termination.
+  field factors, geography boundary tests, and the **clock**: that the forward
+  window starts at the observed hour rather than midnight, and that a 48-hour
+  series is not averaged into a typical day.
+- `test_narrator.py` (70): adversarial input to the language boundary — raw
+  digits, invented tokens, reassurance, behaviour claims, invented school policy,
+  domain names with digits — asserting none survives and that the legitimate
+  shapes do.
+- `test_security.py` (48): headers actually received, docs disabled, path
+  traversal, 14 validation cases, unknown-intervention 404, SSE termination, and
+  that the CSP carries `script-src-attr 'none'` so an injected inline handler
+  cannot run.
+- `test_ui.py` (41): the **served** file against the design — size limit, no
+  external origins, no interpolated `innerHTML`, contrast of the light and dark
+  token pairs, a text alternative for the chart, labelled inputs, and that the
+  forward-window fields are still in the brief.
+
+There is one honest caveat. Passing tests did not prove the product correct: 171
+checks passed while a fact sheet was shipping `None` doses, and 245 passed while
+the plan panel printed a "cleanest hour" that had already passed. Both were found
+by looking at the running app, not by asserting against it. The tests are the
+floor, not the evidence.
 
 ### Security
 
@@ -293,7 +308,7 @@ saans/
   constants.py   every factor, with source and kind (measured/standard/estimate)
   aqi.py         CPCB AQI breakpoints, GRAP stages, NCR test, WHO bands
   engine.py      mass balance, per-person day model, dose, emissions
-  advisor.py     15 interventions, patched and re-run, then ranked
+  advisor.py     14 interventions, patched and re-run, then ranked
   sources.py     source apportionment profiles
   data.py        Open-Meteo / CAMS, geocoding, labelled offline fallback
   narrator.py    fact sheet, token boundary, enforcement, fallback prose
