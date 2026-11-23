@@ -72,6 +72,20 @@ text-align:right;letter-spacing:-.02em;font-weight:500}
 .rung .num small{font-size:9px;opacity:.7;font-weight:400}
 /* the explanation belongs directly under its own bar, not floating in the row */
 .rung .why{grid-column:2/-1;font-size:11px;color:var(--muted);line-height:1.35;margin-top:-1px}
+/* A rung that has a relating constant is a button. The affordance is the word
+   "constant" at the end of its own why line — no chevron, no icon set. */
+.rung.has-ev{cursor:pointer;text-align:left;font:inherit;color:inherit}
+.rung.has-ev .why{text-decoration:underline;text-decoration-color:var(--rule);
+  text-underline-offset:2px}
+.rung.has-ev:hover .why{text-decoration-color:var(--ink);color:var(--ink2)}
+.rung.has-ev:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.evhint{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink2);border-bottom:1px solid var(--rule2);margin-left:5px}
+/* The drawer's answer to the rung: the group and the one row it used. The tint
+   is a pointer that fades, not a state the user has to clear. */
+.fg.hit{background:var(--sunk)}
+.fr.hit{background:var(--sunk);box-shadow:inset 2px 0 0 var(--accent);padding-left:6px}
+.fr.hit b{color:var(--ink)}
 /* One line under the ladder defining the unit the reader just met. */
 .unitline{font-size:11.5px;line-height:1.5;color:var(--ink2);margin-top:7px;max-width:62ch}
 .unitline .ul{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
@@ -564,19 +578,39 @@ function renderLadder(b) {
   const pDose = worst ? worst.dose_ug : null;
   // Only the concentrations scale against each other.
   const concMax = Math.max(amb || 1, ind || 1, kit || 1);
+  const hh = household();
+  /* Every rung is an anchor into the evidence drawer, and the group it opens is
+     the constant that produced the number above it: the WHO reference the
+     outdoor figure is measured against, the envelope fraction that turns
+     outdoor into indoor, the kitchen constant for this household's own fuel,
+     and the inhalation rates that turn a concentration into a daily dose.
+     A rung with no relating constant would be a dead control, so a rung with no
+     ev field stays a plain div. */
   const rungs = [
     { lab:"outdoor", val:amb, unit:"µg/m³", scale:true, dim:false,
-      why:"what the street is doing now" },
+      why:"what the street is doing now",
+      ev:{ group:"health reference levels", row:"WHO 24-hour PM2.5 guideline (ug/m3)" } },
     { lab:"indoors", val:ind, unit:"µg/m³", scale:true, dim:true,
       why: (amb && ind && ind < amb)
         ? "the envelope keeps out about " + Math.round((1 - ind / amb) * 100) + "% of it"
-        : "little protection from the envelope today" },
-    { lab:"at the stove", val:kit, unit:"µg/m³", scale:true, dim:true, why:"while the burner is lit" },
+        : "little protection from the envelope today",
+      ev:{ group:"outdoor-to-indoor (fraction)", row:(hh.home && hh.home.windows_day) || "mixed" } },
+    { lab:"at the stove", val:kit, unit:"µg/m³", scale:true, dim:true,
+      why:"while the burner is lit",
+      ev:{ group:"kitchen PM2.5 by fuel (ug/m3)", row:(hh.home && hh.home.cooking_fuel) || "lpg" } },
     { lab:"breathed today", val:pDose, unit:"µg", scale:false, dim:true,
-      why: worst ? nameVerb(worst.name) + " the most of the household's dose" : "" }
+      why: worst ? nameVerb(worst.name) + " the most of the household's dose" : "",
+      ev:{ group:"inhalation rate (m3/h)", row:null } }
   ];
   rungs.forEach(r => {
-    const row = el("div", "rung");
+    const row = r.ev ? el("button", "rung has-ev") : el("div", "rung");
+    if (r.ev) {
+      row.type = "button";
+      row.setAttribute("aria-controls", "evi");
+      row.setAttribute("aria-label", r.lab + ", " + fmt(r.val) + " " + r.unit +
+        ". Show the constant behind this figure.");
+      row.addEventListener("click", () => openEvidence(r.ev));
+    }
     row.appendChild(el("span", "lab", r.lab));
     if (r.scale) {
       const tr = el("span", "track2");
@@ -589,7 +623,12 @@ function renderLadder(b) {
     }
     const num = el("span", "num"); num.appendChild(document.createTextNode(fmt(r.val)));
     num.appendChild(el("small", null, " " + r.unit)); row.appendChild(num);
-    if (r.why) row.appendChild(el("span", "why", r.why));
+    if (r.why) {
+      const w = el("span", "why");
+      w.appendChild(document.createTextNode(r.why));
+      if (r.ev) w.appendChild(el("span", "evhint", "constant"));
+      row.appendChild(w);
+    }
     box.appendChild(row);
   });
   // The unit, defined where the reader meets it. Both figures are the engine's
@@ -608,6 +647,38 @@ function renderLadder(b) {
         " worth by the engine\u2019s modelled equivalence, not a measurement."));
     }
   }
+}
+
+/* Open the constants drawer at the group a rung names, and mark the one row
+   that row of the ladder actually used. The drawer is the same one the section
+   below already renders; nothing new is added to the page. */
+let evLoad = null;
+async function openEvidence(ev) {
+  const det = $("#evi");
+  if (!det) return;
+  if (!$("#factors").childNodes.length) {
+    evLoad = evLoad || fetch("/api/factors").then(r => r.json()).then(renderFactors).catch(() => {});
+    await evLoad;
+  }
+  det.open = true;
+  const groups = det.querySelectorAll(".fg");
+  let target = null;
+  groups.forEach(g => {
+    g.classList.remove("hit");
+    if (g.dataset.group === ev.group) target = g;
+  });
+  if (!target) return;
+  target.querySelectorAll(".fr").forEach(fr => {
+    fr.classList.toggle("hit", !!ev.row && fr.dataset.row === ev.row);
+  });
+  target.classList.add("hit");
+  target.scrollIntoView({ block:"center", behavior:"smooth" });
+  // The highlight is a pointer, not a state: it fades on its own so a second
+  // rung does not leave two groups marked.
+  setTimeout(() => {
+    target.classList.remove("hit");
+    target.querySelectorAll(".fr.hit").forEach(fr => fr.classList.remove("hit"));
+  }, 2400);
 }
 /* "You carry" but "Amma carries". The household names people, so the verb has to
    agree with whatever they typed. */
@@ -1312,13 +1383,19 @@ function renderFactors(f) {
   const box = $("#factors"); box.textContent = "";
   const groups = (f && f.groups) || {};
   Object.keys(groups).forEach(g => {
-    const blk = el("div", "fg"); blk.appendChild(el("h5", null, g));
+    const blk = el("div", "fg");
+    // The group and row names are the keys the ladder's anchors point at. They
+    // are the API's own strings, so they are compared here, never printed.
+    blk.dataset.group = g;
+    blk.appendChild(el("h5", null, g));
     const rows = Array.isArray(groups[g]) ? groups[g]
       : Object.entries(groups[g] || {}).map(([k, v]) => ({ label:k,
           value: v && v.value !== undefined ? v.value : v, unit: v && v.unit, kind: v && v.kind }));
     rows.forEach(r => {
       const row = el("div", "fr");
-      const l = el("span", null, r.label || r.name || "");
+      const name = r.label || r.name || "";
+      row.dataset.row = name;
+      const l = el("span", null, name);
       if (r.kind) l.appendChild(el("span", "kind " + r.kind, r.kind));
       row.appendChild(l);
       row.appendChild(el("b", null, (r.value !== undefined ? r.value : "") + (r.unit ? " " + r.unit : "")));
