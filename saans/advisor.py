@@ -689,19 +689,37 @@ def combine(
     applied: list[dict] = []
     conflicts: list[dict] = []
 
-    for key in keys:
+    # Order must not change the answer. Two interventions can both write the same
+    # field (cleaner: HEPA vs box fan), and "first one wins" made the household
+    # total depend on which box the user ticked first — 24.3% or 26.2% for the
+    # same pair. Sort the keys, and resolve a shared field by the catalogue's own
+    # capability ranking (HEPA over box fan, chimney over fan, electric over LPG),
+    # so the result is a function of the SET the household chose.
+    RANK = {"cleaner": CLEANER_RANK, "kitchen_exhaust": EXHAUST_RANK,
+            "cooking_fuel": FUEL_RANK, "mixer": FUEL_RANK}
+
+    def rank_of(field_name: str, value) -> int:
+        return RANK.get(field_name, {}).get(value, -1)
+
+    ordered = sorted(set(keys))
+    for key in ordered:
         spec = CATALOGUE[key]
         p, meta = spec["fn"](home, habits, tr, people, ambient)
         for section in ("home", "habits", "transport"):
             for field_name, value in (p.get(section) or {}).items():
                 if section in patch and field_name in patch[section] \
                         and patch[section][field_name] != value:
+                    # Keep the more capable value, not the earlier one.
+                    incumbent = patch[section][field_name]
+                    keep_new = rank_of(field_name, value) > rank_of(field_name, incumbent)
                     conflicts.append({
                         "field": f"{section}.{field_name}",
-                        "kept": patch[section][field_name],
-                        "dropped": value,
+                        "kept": value if keep_new else incumbent,
+                        "dropped": incumbent if keep_new else value,
                         "by": key,
                     })
+                    if keep_new:
+                        patch[section][field_name] = value
                     continue
                 patch.setdefault(section, {})[field_name] = value
         applied.append({
