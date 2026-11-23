@@ -59,7 +59,12 @@ def main() -> int:
     print(f"--- served {size:,} bytes\n")
 
     # --- constraints -------------------------------------------------------
-    check("under 70 KB", size <= 70 * 1024, f"{size/1024:.1f} KB")
+    # The 70 KB ceiling was an invented target in CONTRACT.md, not a rule from
+    # the brief (whose only size rule is 10 MB for the repo). The orchestrator
+    # raised it to 90 KB in design/ORCHESTRATOR_REVIEW.md, "Conflicts resolved"
+    # §3, rather than delete accessibility guarantees to hit a number. Asserted
+    # here so the new ceiling is a checked constraint, not a preference.
+    check("under 90 KB", size <= 90 * 1024, f"{size/1024:.1f} KB")
     check("no external stylesheet", not re.search(r'<link[^>]+rel=["\']stylesheet', html, re.I))
     check("no external script", not re.search(r'<script[^>]+src=', html, re.I))
     check("no web font", "@font-face" not in html and "fonts.googleapis" not in html)

@@ -6,346 +6,315 @@
 <meta name="color-scheme" content="light dark">
 <title>Saans — what the air costs your household</title>
 <style>
-:root{
---paper:#f4f1ea;--panel:#fffdf8;--sunk:#e9e4d8;--ink:#11131a;--ink2:#3a3d46;--muted:#5f5d56;
---rule:#cdc6b6;--rule2:#a89f8c;--accent:#b4501f;--accentInk:#fffdf8;
---good:#2e7a4f;--warn:#8b6508;--vbad:#b02a1e;
---serif:"Iowan Old Style",Palatino,Georgia,serif;
---sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
---mono:ui-monospace,Menlo,Consolas,monospace;
---rad:2px;
-}
-html[data-theme="dark"]{
---paper:#101216;--panel:#171a20;--sunk:#0b0d11;--ink:#f2eee4;--ink2:#c9c2b4;--muted:#9a9385;
---rule:#33373f;--rule2:#4d525c;--accent:#ff9d66;--accentInk:#101216;
---good:#7fd6a4;--warn:#e6c05a;--vbad:#f08b7d;
-}
+/* SAANS — "Notice & Plate": grey-white sheet, form grid, hairline rules, one near-black plate per screen. */
+:root{--paper:#eeedea;--panel:#f8f7f4;--sunk:#e0dfda;--plate:#111417;--plate-ink:#f7f6f1;--ink:#111417;--ink2:#383d41;--muted:#5b605e;--rule:#d3d1ca;--rule2:#b6b2a8;--ctl:#7f7a6e;--alarm:#8f1420;--ok:#1d6b45;--knob-ink:#fbfaf6;--well:#1b1f24;--plate-muted:#a6aaa7;--alarm-plate:#ff8a80;--rule-plate:#41464b;--aq-text:#5b605e;--aq-lift:#939a97;--serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;--rad:2px;--fh2:20px;--fh3:14px;--d1:90ms;--ease:cubic-bezier(.2,0,0,1);}
+html[data-theme="dark"]{--paper:#0e1012;--panel:#16191c;--sunk:#08090a;--plate:#060708;--plate-ink:#f7f6f1;--ink:#efefeb;--ink2:#c2c6c4;--muted:#939a97;--rule:#2b2f33;--rule2:#41464b;--ctl:#737a7d;--alarm:#ff8a80;--ok:#5fd39b;--knob-ink:#0b0d0e;--well:#14171b;--plate-muted:#9aa09d;--alarm-plate:#ff8a80;--rule-plate:#41464b;--aq-text:#5ccf92;--aq-lift:#5ccf92;}
+/* The AQI accent. */
+html[data-aq="good"]{--aq-text:#0b6a3c;--aq-lift:#5ccf92}
+html[data-aq="satisfactory"]{--aq-text:#4a6a06;--aq-lift:#b6cf55}
+html[data-aq="moderate"]{--aq-text:#7d5500;--aq-lift:#e6bf58}
+html[data-aq="poor"]{--aq-text:#9c470c;--aq-lift:#ff9a5c}
+html[data-aq="very_poor"]{--aq-text:#9b1723;--aq-lift:#ff7d75}
+html[data-aq="severe"]{--aq-text:#6f0d2a;--aq-lift:#e5849f}
+/* Dark mode: one bright value serves both tracks (§3.3), so the text track borrows the lift. */
+html[data-theme="dark"][data-aq]{--aq-text:var(--aq-lift)}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
-body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
--webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
-h1,h2,h3,h4,h5{margin:0;font-weight:600;line-height:1.15}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+h1,h2,h3,h4,h5{margin:0;font-weight:600;line-height:1.2}
 p{margin:0}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;background:none;border:none;padding:0}
-button:disabled{cursor:not-allowed;opacity:.45}
-::selection{background:var(--accent);color:var(--accentInk)}
-:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:1px}
+button:disabled{cursor:not-allowed;opacity:1;color:var(--muted)}
+::selection{background:var(--aq-text);color:var(--knob-ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .skip{position:absolute;left:-9999px;top:0;z-index:99;background:var(--ink);color:var(--paper);padding:9px 14px;font-size:13px}
 .skip:focus{left:10px;top:10px}
 .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
-.wrap{max-width:1180px;margin:0 auto;padding:0 12px 40px}
-
-.bar{display:flex;align-items:center;gap:8px;min-height:44px;border-bottom:1px solid var(--rule);
-position:sticky;top:0;background:var(--paper);z-index:20;padding:0}
-.mark{font-family:var(--serif);font-size:19px;letter-spacing:-.03em;font-weight:600}
-.mark span{color:var(--accent)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 12px 40px}
+.num,.pc,.op,.ork,.vv,.dose,.pct,.fc .v,.rwhen{font-variant-numeric:tabular-nums}
+/* Masthead — 44 px, one line, a hairline under it. */
+.bar{display:flex;align-items:center;gap:8px;min-height:44px;border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--paper);z-index:20}
+.mark{font-family:var(--serif);font-size:19px;letter-spacing:-.03em;font-weight:500}
+.mark span{color:var(--aq-text)}
 .spacer{margin-left:auto}
-.chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
-color:var(--ink2);border:1px solid var(--rule2);padding:5px 8px;border-radius:var(--rad);
-min-height:32px;display:inline-flex;align-items:center;gap:5px}
+.chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--ctl);padding:0 8px;border-radius:var(--rad);min-height:32px;display:inline-flex;align-items:center;gap:5px;transition:border-color var(--d1) var(--ease),color var(--d1) var(--ease)}
 .chip:hover{border-color:var(--ink);color:var(--ink)}
-.chip[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
-.live{width:6px;height:6px;border-radius:50%;background:var(--good);flex:0 0 auto}
+.chip[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+.live{width:6px;height:6px;border-radius:50%;background:var(--ok);flex:0 0 auto}
 .live.off{background:var(--muted)}
-
-.hero{display:grid;gap:12px;padding:14px 0 0}
-@media(min-width:860px){.hero{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}}
-.verdict{font-family:var(--serif);font-size:clamp(27px,7.4vw,38px);line-height:1.1;
-letter-spacing:-.024em;font-weight:400;text-wrap:pretty;max-width:22ch}
-.verdict .em{font-style:italic;color:var(--accent)}
-.kicker{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
-color:var(--muted);margin-bottom:7px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-
-.ladder{margin-top:13px;border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad)}
-.rung{display:grid;grid-template-columns:78px minmax(0,1fr) 62px;align-items:center;gap:4px 10px;
-padding:7px 10px;border-bottom:1px solid var(--rule);min-height:38px;width:100%;text-align:left;background:none}
+.chip.clock{border:0;padding:0 2px;gap:5px}
+.chip.clock span{font-variant-numeric:tabular-nums}
+/* The hero: mono form label, then the plate, then the ladder. */
+.hero{display:grid;gap:14px;padding:14px 0 0}
+@media(min-width:860px){.hero{grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:24px;align-items:start}}
+.kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+/* §7.1 the one plate per screen. */
+.plate{background:var(--plate);border-radius:var(--rad);border-bottom:4px solid var(--aq-lift);padding:14px 16px 13px;min-height:168px}
+@media(min-width:860px){.plate{padding:24px 28px 20px;min-height:196px}}
+html[data-theme="dark"] .plate{border:1px solid var(--rule2);border-bottom:4px solid var(--aq-lift)}
+/* header: category in --aq-lift, separators and place in --plate-muted. */
+.platehead{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--plate-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:14px}
+.platehead .cat{color:var(--aq-lift);font-weight:700}
+.platehead .sep{color:var(--plate-muted);margin:0 6px}
+.verdict{font-family:var(--serif);font-size:clamp(27px,4.2vw,40px);line-height:1.15;letter-spacing:-.022em;font-weight:400;text-wrap:pretty;color:var(--plate-ink);margin:0}
+@media(min-width:560px){.verdict{line-height:1.13}}
+@media(min-width:860px){.verdict{line-height:1.10;max-width:22ch}}
+.verdict .em{font-style:italic;color:var(--aq-lift)}
+.platemeta{font-family:var(--mono);font-size:10.5px;color:var(--plate-muted);margin-top:16px;letter-spacing:.04em;min-height:14px}
+.platemeta b{color:var(--plate-ink);font-weight:500}
+/* A plate's failure is not the page's failure: the sentence keeps the last reading and one rule says the feed is down. */
+.plate.err{border-top:1px solid var(--alarm-plate)}
+.plate.err .platehead{color:var(--alarm-plate)}
+/* §7.2 the ladder is an instrument: border, header row, its own scale. */
+.ladder{margin-top:14px;border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);overflow:hidden}
+.rung{display:grid;grid-template-columns:72px minmax(0,1fr) 58px;align-items:center;gap:4px 10px;padding:6px 10px;border-bottom:1px solid var(--rule);min-height:38px;width:100%;text-align:left;background:none;font:inherit;color:inherit}
+@media(min-width:560px){.rung{grid-template-columns:76px minmax(0,1fr) 64px}}
 .rung:last-child{border-bottom:0}
 .rung:hover{background:var(--sunk)}
-.rung .lab{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.rung .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .rung .track2{height:9px;background:var(--sunk);position:relative;border-radius:1px;overflow:hidden}
-.rung .fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:1px}
+.rung .fill{position:absolute;left:0;top:0;bottom:0;background:var(--aq-text);border-radius:1px}
 .rung .fill.dim{background:var(--rule2)}
-.rung .num{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;
-text-align:right;letter-spacing:-.02em;font-weight:500}
-.rung .num small{font-size:9px;opacity:.7;font-weight:400}
-/* the explanation belongs directly under its own bar, not floating in the row */
-.rung .why{grid-column:2/-1;font-size:11px;color:var(--muted);line-height:1.35;margin-top:-1px}
-/* A rung that has a relating constant is a button. The affordance is the word
-   "constant" at the end of its own why line — no chevron, no icon set. */
-.rung.has-ev{cursor:pointer;text-align:left;font:inherit;color:inherit}
-.rung.has-ev .why{text-decoration:underline;text-decoration-color:var(--rule);
-  text-underline-offset:2px}
+.rung .num{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.02em;font-weight:500}
+.rung .num small{font-size:10px;color:var(--muted);font-weight:400}
+.rung .why{grid-column:2/-1;font-size:10.5px;color:var(--muted);line-height:1.35;margin-top:-1px}
+/* A rung that has a relating constant is a button. */
+.rung.has-ev{cursor:pointer}
+.rung.has-ev .why{text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:2px}
 .rung.has-ev:hover .why{text-decoration-color:var(--ink);color:var(--ink2)}
 .rung.has-ev:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
-.evhint{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--ink2);border-bottom:1px solid var(--rule2);margin-left:5px}
-/* The drawer's answer to the rung: the group and the one row it used. The tint
-   is a pointer that fades, not a state the user has to clear. */
-.fg.hit{background:var(--sunk)}
-.fr.hit{background:var(--sunk);box-shadow:inset 2px 0 0 var(--accent);padding-left:6px}
-.fr.hit b{color:var(--ink)}
+.evhint{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);border-bottom:1px solid var(--rule2);margin-left:5px}
 /* One line under the ladder defining the unit the reader just met. */
-.unitline{font-size:11.5px;line-height:1.5;color:var(--ink2);margin-top:7px;max-width:62ch}
-.unitline .ul{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
-color:var(--muted);margin-right:2px}
-
-.surface{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);margin-top:12px;overflow:hidden}
-.surhead{display:flex;align-items:baseline;gap:8px;padding:8px 10px 0;flex-wrap:wrap}
-.surhead h2{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink2);font-weight:700}
-.surhead .aside{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.unitline{font-size:12px;line-height:1.5;color:var(--ink2);margin-top:8px;max-width:62ch}
+.unitline .ul{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+/* §7.3 the 24 h surface. Fixed heights so the first paint and the loaded paint are the same shape. */
+.surface{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);margin-top:14px;overflow:hidden}
+.surhead{display:flex;align-items:baseline;gap:8px;padding:8px 10px 0;flex-wrap:wrap;min-height:26px}
+.surhead h2{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);font-weight:700}
+.surhead .aside{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .plotwrap{position:relative;padding:6px 10px 0;cursor:crosshair;touch-action:pan-y}
-.plot{position:relative;height:92px;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;align-items:end}
+.plot{position:relative;height:80px;display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;align-items:end}
+@media(min-width:768px){.plot{height:96px;gap:2px}}
 .plot .col{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
 .plot .col.cook::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--ink)}
-.plot .amb{position:absolute;left:0;right:0;bottom:0;height:calc(var(--a) * 100%);
-background:var(--accent);opacity:.82;border-radius:1px 1px 0 0;min-height:2px}
-.plot .in{position:relative;width:44%;height:calc(var(--i) * 100%);background:var(--ink);
-border-radius:1px 1px 0 0;min-height:2px;z-index:2}
+.plot .amb{position:absolute;left:0;right:0;bottom:0;height:calc(var(--a) * 100%);background:var(--aq-text);border-radius:1px 1px 0 0;min-height:2px}
+.plot .in{position:relative;width:44%;height:calc(var(--i) * 100%);background:var(--ink);border-radius:1px 1px 0 0;min-height:2px;z-index:2}
 .cursor{position:absolute;top:0;bottom:0;width:1.5px;background:var(--ink);pointer-events:none;z-index:5}
 .cursor::after{content:"";position:absolute;bottom:-1px;left:-3px;width:7px;height:7px;border-radius:50%;background:var(--ink)}
-.axis{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;font-family:var(--mono);
-font-size:9px;color:var(--muted);padding:3px 10px 0}
+.axis{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:1px;font-family:var(--mono);font-size:10px;color:var(--muted);padding:3px 10px 0;height:14px}
 .axis span{text-align:center;overflow:hidden;font-variant-numeric:tabular-nums}
-.readout{display:flex;gap:12px;flex-wrap:wrap;padding:7px 10px 9px;font-family:var(--mono);font-size:11px;
-color:var(--ink2);border-top:1px solid var(--rule);background:var(--sunk)}
-.readout b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
-.readout .k{color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-size:9.5px}
-
-.bench{margin-top:16px}
-.benchhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:3px}
-.benchhead h2{font-family:var(--serif);font-size:20px;letter-spacing:-.02em;font-weight:500}
-.benchhead .aside{font-size:11.5px;color:var(--muted);max-width:46ch}
-.grid2{display:grid;gap:12px;margin-top:9px}
-@media(min-width:860px){.grid2{grid-template-columns:minmax(0,1fr) minmax(0,320px);gap:20px;align-items:start}}
-
+.readout{display:flex;gap:12px;flex-wrap:wrap;padding:0 10px;min-height:28px;align-items:center;font-family:var(--mono);font-size:11.5px;color:var(--ink2);border-top:1px solid var(--rule);background:var(--sunk)}
+@media(min-width:768px){.readout{min-height:34px}}
+.readout b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.readout .k{color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-size:10px}
+/* §7.4 the bench. */
+.bench{margin-top:24px}
+.benchhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.benchhead h2{font-family:var(--serif);font-size:var(--fh2);letter-spacing:-.015em;font-weight:500}
+.benchhead .aside{font-size:10.5px;color:var(--muted);max-width:46ch;line-height:1.45}
+.grid2{display:grid;gap:14px;margin-top:10px}
+@media(min-width:860px){.grid2{grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}}
 .picks{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);overflow:hidden}
-.pick{display:grid;grid-template-columns:18px minmax(0,1fr) 48px;gap:8px;align-items:center;
-width:100%;text-align:left;padding:5px 9px;border-bottom:1px solid var(--rule);min-height:34px;background:none}
+.pick{display:grid;grid-template-columns:16px minmax(0,1fr) 48px;gap:8px;align-items:center;width:100%;text-align:left;padding:5px 9px;border-bottom:1px solid var(--rule);min-height:44px;background:none}
 .pick:last-child{border-bottom:0}
 .pick:hover{background:var(--sunk)}
 .pick[aria-pressed="true"]{background:var(--sunk)}
-/* The picker is the densest thing on the page on purpose: 14 actions at 46px is
-   a 640px wall, and a wall is what made the old design read as a report. */
-.pick .pt{font-size:12px;line-height:1.28;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pick .box{width:15px;height:15px;border:1.5px solid var(--rule2);border-radius:2px;position:relative;flex:0 0 auto}
-.pick[aria-pressed="true"] .box{border-color:var(--accent);background:var(--accent)}
-.pick[aria-pressed="true"] .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
-border:solid var(--accentInk);border-width:0 2px 2px 0;transform:rotate(42deg)}
-.pick .pt em{display:inline;font-style:normal;font-size:10px;color:var(--muted);margin-left:6px}
-.pick .pc{font-family:var(--mono);font-size:11px;text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums}
-.pick .pc s{display:block;text-decoration:line-through;color:var(--muted);font-size:9.5px}
-
-.tally{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad)}
-@media(min-width:860px){.tally{position:sticky;top:52px}}
-.tally .th{padding:9px 11px;border-bottom:1px solid var(--rule);font-size:10.5px;letter-spacing:.14em;
-text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;align-items:center}
+/* The picker is the densest thing on the page on purpose: 14 actions at 46 px is a 640 px wall, and a wall is what made the old design read as a report. */
+.pick .pt{font-size:13px;line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick .box{width:16px;height:16px;border:1px solid var(--ctl);border-radius:var(--rad);position:relative}
+.pick[aria-pressed="true"] .box{border-color:var(--aq-text);background:var(--aq-text)}
+.pick[aria-pressed="true"] .box::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--knob-ink);border-width:0 2px 2px 0;transform:rotate(42deg)}
+.pick .pt em{display:inline;font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-left:6px}
+.pick .pc{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--ink2)}
+.pick .pc s{display:block;text-decoration:line-through;color:var(--muted);font-size:10px}
+/* §7.5 the tally: the second and only other plate, band on the top edge, so the pair reads as one leading and one trailing. */
+.tally{background:var(--plate);color:var(--plate-ink);border-radius:var(--rad);border-top:4px solid var(--aq-lift)}
+html[data-theme="dark"] .tally{border:1px solid var(--rule2);border-top:4px solid var(--aq-lift)}
+@media(min-width:1024px){.tally{position:sticky;top:52px}}
+.tally .th{padding:10px;border-bottom:1px solid var(--rule-plate);font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--plate-muted);font-weight:700;display:flex;align-items:center}
 .tally .th span{margin-left:auto;font-family:var(--mono);letter-spacing:0;text-transform:none;font-size:10px}
-.big{padding:11px;border-bottom:1px solid var(--rule)}
-.big .pct{font-family:var(--mono);font-size:34px;line-height:1;letter-spacing:-.04em;
-font-variant-numeric:tabular-nums;font-weight:500}
-.big .pct small{font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0}
-.big .sub{font-size:11.5px;color:var(--ink2);margin-top:5px;line-height:1.45}
-.big .band{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px}
-.overlap{padding:8px 11px;border-bottom:1px solid var(--rule);font-size:11px;color:var(--ink2);
-line-height:1.45;background:var(--sunk)}
+.big{padding:12px;border-bottom:1px solid var(--rule-plate)}
+.big .pct{font-family:var(--mono);font-size:34px;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;font-weight:500;color:var(--plate-ink)}
+@media(min-width:1024px){.big .pct{font-size:44px}}
+.big .pct small{font-size:13px;font-weight:400;color:var(--plate-muted);letter-spacing:0}
+.big .sub{font-size:13px;color:var(--plate-ink);margin-top:6px;line-height:1.45}
+.big .band{font-family:var(--mono);font-size:10.5px;color:var(--plate-muted);margin-top:4px}
+.overlap{padding:8px 12px;border-bottom:1px solid var(--rule-plate);font-size:11.5px;color:var(--plate-ink);line-height:1.45;background:var(--well)}
 .overlap b{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.pp{padding:8px 11px;border-bottom:1px solid var(--rule)}
-.pp .row{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:8px;align-items:center;
-font-size:11.5px;margin-bottom:4px}
-.pp .row .nn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pp .row .vv{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;font-size:11px}
-.pp .bar{height:5px;background:var(--sunk);position:relative;border-radius:1px;margin-bottom:6px}
-.pp .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--rule2);border-radius:1px}
-.pp .bar i.aft{background:var(--accent)}
-.tfoot{padding:9px 11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.conflict{padding:8px 11px;background:var(--sunk);border-top:1px solid var(--rule);font-size:11px;
-color:var(--ink2);line-height:1.45}
-
-.btn{min-height:38px;padding:0 13px;border:1px solid var(--ink);border-radius:var(--rad);
-font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:7px;background:var(--ink);color:var(--paper)}
-.btn:hover{opacity:.86}
-.btn.ghost{background:none;color:var(--ink);border-color:var(--rule2)}
-.btn.ghost:hover{border-color:var(--ink);opacity:1}
-
-.sec{margin-top:22px;border-top:1px solid var(--rule);padding-top:11px}
-.sechead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
-.sechead h2{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink2);font-weight:700}
-.sechead .aside{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)}
-.prose{font-size:13.5px;line-height:1.6;color:var(--ink2);max-width:68ch}
+.pp{padding:8px 12px;border-bottom:1px solid var(--rule-plate)}
+.pp:empty,.overlap:empty,.big .band:empty,.planfoot:empty,.unitline:empty{display:none}
+.pp .row{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:8px;align-items:center;font-size:11.5px;margin-bottom:5px}
+.pp .row .nn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--plate-ink)}
+.pp .row .vv{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--plate-ink)}
+.pp .bar{height:5px;background:var(--rule-plate);position:relative;border-radius:1px;margin-bottom:6px}
+.pp .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--plate-muted);border-radius:1px}
+.pp .bar i.aft{background:var(--aq-lift)}
+.tfoot{padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--rule-plate)}
+.tally .btn{background:var(--plate-ink);color:var(--plate);border-color:var(--plate-ink)}
+.tally .btn.ghost{background:none;color:var(--plate-ink);border-color:var(--rule2)}
+.tally :focus-visible{outline-color:var(--plate-ink)}
+.conflict{padding:8px 12px;background:var(--well);font-size:11.5px;color:var(--plate-ink);line-height:1.45}
+.conflict b{color:var(--alarm-plate);font-family:var(--mono)}
+/* §7.10 buttons. One primary per screen. */
+.btn{min-height:40px;padding:0 14px;border:1px solid var(--ink);border-radius:var(--rad);font-size:13px;font-weight:600;letter-spacing:.01em;display:inline-flex;align-items:center;gap:7px;background:var(--ink);color:var(--paper)}
+@media(min-width:560px){.btn{min-height:36px}}
+.btn:hover{background:var(--ink2);border-color:var(--ink2)}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--ctl)}
+.btn.ghost:hover{border-color:var(--ink);background:none}
+/* §5.2 a section boundary is a hairline, a 12 px top pad and a 24 px gap. */
+.sec{margin-top:24px;border-top:1px solid var(--rule);padding-top:12px}
+@media(min-width:900px){.sec{margin-top:32px;padding-left:112px;position:relative}.sec>.sechead{position:absolute;left:0;top:12px;width:96px;display:block;margin:0}.sec>.sechead .aside{margin:0;display:block;text-align:left;line-height:1.4}}
+.sechead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sechead h2{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);font-weight:700}
+.sechead .aside{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.prose{font-size:13px;line-height:1.62;color:var(--ink2);max-width:68ch}
 .prose.serif{font-family:var(--serif);font-size:15.5px;line-height:1.55;color:var(--ink)}
-
-.rail{border-left:2px solid var(--rule);margin-left:5px;margin-top:4px}
-.rrow{position:relative;padding:0 0 13px 16px}
-.rrow::before{content:"";position:absolute;left:-5px;top:6px;width:8px;height:8px;border-radius:50%;
-background:var(--paper);border:2px solid var(--rule2)}
-.rrow.top::before{background:var(--accent);border-color:var(--accent)}
-.rwhen{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
-.rrow.top .rwhen{color:var(--accent);font-weight:700}
-.ract{font-size:13.5px;font-weight:600;line-height:1.4}
-.rwhy{font-size:12px;color:var(--ink2);line-height:1.5;margin-top:2px;max-width:62ch}
-.rmeta{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px}
-.rfoot{display:flex;gap:8px;align-items:center;margin-top:5px;flex-wrap:wrap}
-.doneBtn{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
-border:1px solid var(--rule2);padding:4px 8px;border-radius:var(--rad);color:var(--ink2);min-height:28px}
-.doneBtn:hover{border-color:var(--ink);color:var(--ink)}
-.doneBtn[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:#fff}
-.rrow.isdone .ract{opacity:.62}
-
-.ledger{border-top:1px solid var(--rule)}
-.opt{border-bottom:1px solid var(--rule)}
-.opt summary{display:grid;grid-template-columns:24px minmax(0,1fr) 58px;gap:9px;align-items:start;
-padding:9px 0;cursor:pointer;list-style:none}
-.opt summary::-webkit-details-marker{display:none}
-.opt summary:hover .ot{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule2)}
-.ork{font-family:var(--mono);font-size:10.5px;color:var(--muted);padding-top:2px;font-variant-numeric:tabular-nums}
-.ot{font-size:13px;line-height:1.4;font-weight:500}
-.ot .who{display:block;font-size:10.5px;color:var(--muted);font-weight:400;margin-top:2px}
-.op{text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
-.op small{display:block;font-weight:400;font-size:9px;color:var(--muted)}
-.oc{display:none}
-@media(min-width:620px){.opt summary{grid-template-columns:28px minmax(0,1fr) 76px 88px;gap:12px}
-.oc{display:block;text-align:right;font-family:var(--mono);font-size:11px;color:var(--ink2)}
-.oc small{display:block;font-size:9px;color:var(--muted)}}
-.ob{padding:2px 0 13px 33px}
-@media(max-width:619px){.ob{padding-left:0}}
-.ob h4{font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px;font-weight:700}
-.ob p{font-size:12.5px;line-height:1.55;color:var(--ink2);max-width:66ch}
-.ob .src{font-size:10.5px;color:var(--muted);border-left:2px solid var(--rule2);padding-left:8px;margin-top:8px;line-height:1.45}
-
-.people{display:grid;gap:8px}
-@media(min-width:560px){.people{grid-template-columns:1fr 1fr}}
-@media(min-width:860px){.people{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.pc2{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);padding:9px 10px;text-align:left;width:100%}
-.pc2:hover{border-color:var(--ink)}
-.pc2.sel{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
-.pc2 .nm{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.pc2 .ag{font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:1px}
-.pc2 .dose{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums;margin-top:5px;letter-spacing:-.02em}
-.pc2 .dose small{font-size:9px;color:var(--muted);letter-spacing:0}
-.pc2 .sh{font-family:var(--mono);font-size:9.5px;color:var(--accent);margin-top:1px}
-.tag{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;border:1px solid currentColor;
-padding:0 3px;border-radius:1px;color:var(--muted);font-weight:600}
-.tag.risk{color:var(--vbad)}
-
-details.evi{border:1px solid var(--rule2);border-radius:var(--rad);background:var(--panel)}
-details.evi>summary{padding:10px 12px;cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px;position:relative}
-details.evi>summary::-webkit-details-marker{display:none}
-details.evi>summary::after{content:"open";position:absolute;right:11px;top:10px;font-family:var(--mono);
-font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--rule2);padding:1px 4px}
-details.evi[open]>summary::after{content:"close"}
-details.evi[open]>summary{border-bottom:1px solid var(--rule)}
-.eh{font-size:12.5px;font-weight:600}
-.es{font-size:10.5px;color:var(--muted);max-width:46ch;line-height:1.4}
-.fwrap{padding:2px 12px 12px}
-.fg{border-top:1px solid var(--rule);padding:7px 0}
-.fg:first-child{border-top:0}
-.fg h5{margin:0 0 3px;font-size:10.5px;font-weight:700;color:var(--ink2)}
-.fr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;font-size:10.5px;padding:1.5px 0;color:var(--muted)}
-.fr b{font-family:var(--mono);color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
-.kind{font-size:8px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;padding:0 2px;margin-left:4px}
-.kind.estimate{color:var(--vbad)}
-.kind.measured{color:var(--good)}
-
-details.ed{border:1px solid var(--rule2);border-radius:var(--rad);background:var(--panel)}
-details.ed>summary{padding:10px 12px;cursor:pointer;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
-font-weight:700;color:var(--ink2);display:flex;align-items:center;gap:8px;list-style:none}
-details.ed>summary::-webkit-details-marker{display:none}
-details.ed>summary::after{content:"edit";margin-left:auto;font-family:var(--mono);font-size:8.5px;
-letter-spacing:.1em;color:var(--muted);border:1px solid var(--rule2);padding:1px 4px}
-details.ed[open]>summary::after{content:"close"}
-.edbody{padding:2px 12px 13px;border-top:1px solid var(--rule)}
-.step{padding:11px 0;border-bottom:1px solid var(--rule)}
-.step:last-of-type{border-bottom:0}
-.steph{font-size:12px;font-weight:600;margin-bottom:7px}
-.steph em{font-style:normal;font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-right:6px}
-.chips{display:flex;gap:7px;flex-wrap:wrap}
-.pchip{display:flex;flex-direction:column;gap:1px;align-items:flex-start;border:1px solid var(--rule2);
-padding:6px 10px;border-radius:var(--rad);font-size:12px;font-weight:600;min-width:0;min-height:40px}
-.pchip small{font-family:var(--mono);font-size:9px;color:var(--muted);font-weight:400}
-.pchip:hover{border-color:var(--ink)}
-.pedit{display:grid;grid-template-columns:minmax(0,1fr) 66px;gap:7px;margin-top:9px;padding:9px;
-border:1px solid var(--rule);background:var(--sunk);border-radius:var(--rad)}
-@media(min-width:620px){.pedit{grid-template-columns:minmax(0,1fr) 66px minmax(0,1fr) auto}}
-.pedit label{display:block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:2px}
-.pedit input,.pedit select{width:100%;min-width:0;border:1px solid var(--rule2);background:var(--panel);
-padding:6px 7px;border-radius:var(--rad);font-size:12.5px}
-.pedit .box{display:flex;flex-direction:column;gap:4px;justify-content:flex-end}
-.pedit .box label{display:flex;align-items:center;gap:6px;font-size:11px;letter-spacing:0;
-text-transform:none;color:var(--ink2);font-weight:400;margin:0}
-.pedit .box input{width:14px}
-.cards{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-@media(min-width:560px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.cards.five{grid-template-columns:repeat(5,minmax(0,1fr))}}
-.rc{position:relative;display:block;cursor:pointer;min-width:0}
-.rc input{position:absolute;opacity:0;width:1px;height:1px}
-.rcb{display:flex;flex-direction:column;gap:1px;border:1px solid var(--rule2);border-radius:var(--rad);
-padding:8px 9px;min-height:48px;font-size:12px;font-weight:600}
-.rcb small{font-size:9.5px;color:var(--muted);font-weight:400;line-height:1.3}
-.rc input:checked+.rcb{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
-.rc:hover .rcb{border-color:var(--ink)}
-.acts{display:flex;gap:9px;align-items:center;margin-top:10px;flex-wrap:wrap}
-#saveNote{font-family:var(--mono);font-size:10px;color:var(--muted)}
-
-.planbox{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);padding:11px}
-/* The three prose slots exist from the first paint so nothing moves when the
-   words land. 2 lines for the opening, 2 for the children, 1 for the limit —
-   the height the deterministic fallback actually occupies. */
-.slot{min-height:0;margin:0}
+/* §7.6 the plan rail: a vertical hairline, rows hanging off it, no cards. */
+.planbox{padding:0}
 [data-slot="opening"]{min-height:3.1em}
 [data-slot="children"]{min-height:3.1em}
 [data-slot="limit"]{min-height:1.5em}
-.slot.pending::before{content:"";display:block;height:2px;background:var(--rule);
-  margin:9px 0 0;max-width:64ch}
+.slot{margin:0}
+.planfigs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:9px 0;border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
+@media(min-width:540px){.planfigs{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.fc{padding:7px 9px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);min-width:0}
+.fc .l{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.fc .v{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.02em}
+.fc .v small{font-size:10px;color:var(--muted);letter-spacing:0}
+.limit{font-size:10.5px;line-height:1.5;color:var(--muted);max-width:62ch;margin-top:12px}
+.planfoot{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5}
+.rail{border-left:2px solid var(--rule);margin-left:5px;margin-top:6px}
+.rrow{position:relative;padding:0 0 14px 16px}
+.rrow::before{content:"";position:absolute;left:-5px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--paper);border:2px solid var(--rule2)}
+.rrow.top::before{background:var(--aq-text);border-color:var(--aq-text);outline:2px solid var(--aq-text);outline-offset:2px}
+.rwhen{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.rrow.top .rwhen{color:var(--aq-text);font-weight:700}
+.ract{font-size:var(--fh3);font-weight:600;line-height:1.4}
+.rwhy{font-size:11.5px;color:var(--ink2);line-height:1.5;margin-top:2px;max-width:62ch}
+.rmeta{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:4px}
+.rfoot{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.doneBtn{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;border:1px solid var(--ctl);padding:4px 8px;border-radius:var(--rad);color:var(--ink2);min-height:28px}
+.doneBtn:hover{border-color:var(--ink);color:var(--ink)}
+.doneBtn[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--knob-ink)}
+.rrow.isdone .ract{color:var(--muted)}
 /* Three determinate steps, no spinner, no percentage. */
-.progress{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  font-family:var(--mono);font-size:10px;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--muted);margin:0 0 9px}
-.progress .pdot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto;
-  animation:pulse 1.1s ease-in-out infinite}
+.progress{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.progress .pdot{width:6px;height:6px;border-radius:50%;background:var(--aq-text);flex:0 0 auto;animation:pulse 1.1s ease-in-out infinite}
 .progress .segs{display:flex;gap:4px}
 .progress .seg{width:24px;height:2px;background:var(--rule);position:relative;overflow:hidden}
 .progress .seg.past{background:var(--ink)}
 .progress .seg.now{background:var(--sunk)}
-.progress .seg.now::after{content:"";position:absolute;top:0;left:0;width:8px;height:2px;
-  background:var(--accent);animation:sweep 1.8s linear infinite}
+.progress .seg.now::after{content:"";position:absolute;top:0;left:0;width:8px;height:2px;background:var(--aq-text);animation:sweep 1.8s linear infinite}
 @keyframes sweep{from{transform:translateX(-8px)}to{transform:translateX(24px)}}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
 .progress .pcount{margin-left:auto;letter-spacing:0;text-transform:none}
-.again{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
-  border:1px solid var(--rule2);color:var(--ink2);border-radius:var(--rad);
-  padding:6px 9px;min-height:32px;margin-top:8px}
-.again:hover{border-color:var(--ink);color:var(--ink)}
-.planfigs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:9px 0;
-border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
-@media(min-width:540px){.planfigs{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.fc{padding:7px 9px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);min-width:0}
-.fc .l{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700}
-.fc .v{font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;margin-top:1px;letter-spacing:-.02em}
-.fc .v small{font-size:9px;color:var(--muted);letter-spacing:0}
-.limit{font-size:11.5px;line-height:1.5;color:var(--muted);max-width:62ch;margin-top:11px}
-.planfoot{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:9px}
-.streaming{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
-.pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.1s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
-/* the model's own words while it writes: monospace, quiet, clipped to its tail */
-.rawtext{font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--muted);
-background:var(--sunk);border:1px solid var(--rule);border-radius:var(--rad);
-padding:7px 9px;margin-top:6px;max-height:92px;overflow:hidden;white-space:pre-wrap;
-word-break:break-word;opacity:.85}
-/* A first-run notice, not an error: the numbers are correct for someone, just not
-   for this person. Uses the accent, never the alarm colour. */
-.samplebar{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:9px 11px;
-margin-top:10px;border:1px solid var(--accent);border-left-width:3px;border-radius:var(--rad);
-background:var(--sunk);font-size:12px;line-height:1.45;color:var(--ink2)}
+.again{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;border:1px solid var(--ctl);color:var(--ink);border-radius:var(--rad);padding:6px 9px;min-height:32px;margin-top:8px}
+.again:hover{border-color:var(--ink)}
+.rawtext{font-family:var(--mono);font-size:10px;line-height:1.5;color:var(--muted);background:var(--sunk);border:1px solid var(--rule);border-radius:var(--rad);padding:7px 9px;margin-top:8px;max-height:92px;overflow:hidden;white-space:pre-wrap;word-break:break-word}
+/* §7.8 the ledger. No border: it sits on the paper under a hairline. */
+.ledger{border-top:1px solid var(--rule)}
+.opt{border-bottom:1px solid var(--rule)}
+.opt summary{display:grid;grid-template-columns:24px minmax(0,1fr) 58px;gap:9px;align-items:start;padding:9px 0;cursor:pointer;list-style:none}
+.opt summary::-webkit-details-marker{display:none}
+.opt summary:hover .ot{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule2)}
+.ork{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding-top:2px;font-variant-numeric:tabular-nums}
+.ot{font-size:13px;line-height:1.4;font-weight:500}
+.ot .who{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400;margin-top:3px}
+.op{text-align:right;font-family:var(--mono);font-size:11.5px;font-weight:600}
+.op small{display:block;font-weight:400;font-size:10px;color:var(--muted)}
+.oc{display:none}
+@media(min-width:620px){.opt summary{grid-template-columns:28px minmax(0,1fr) 76px 88px;gap:12px}.oc{display:block;text-align:right;font-family:var(--mono);font-size:11.5px;color:var(--ink2)}.oc small{display:block;font-size:10px;color:var(--muted)}}
+.ob{padding:2px 0 14px 33px}
+@media(max-width:619px){.ob{padding-left:0}}
+.ob h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px;font-weight:700}
+.ob p{font-size:13px;line-height:1.55;color:var(--ink2);max-width:66ch}
+.ob .src{font-size:10.5px;color:var(--muted);border-left:2px solid var(--rule2);padding-left:8px;margin-top:8px;line-height:1.45}
+/* §7.7 a person card is a single interactive unit, so it is the one place a whole border is a tap target. */
+.people{display:grid;gap:8px}
+@media(min-width:560px){.people{grid-template-columns:1fr 1fr}}
+@media(min-width:860px){.people{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.pc2{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);padding:9px 10px;text-align:left;width:100%;transition:border-color var(--d1) var(--ease)}
+.pc2:hover{border-color:var(--ink)}
+.pc2.sel{border-color:var(--ink)}
+.pc2 .nm{font-size:var(--fh3);font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pc2 .ag{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+.pc2 .dose{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums;margin-top:6px;letter-spacing:-.02em}
+.pc2 .dose small{font-size:10px;color:var(--muted);letter-spacing:0}
+.pc2 .sh{font-family:var(--mono);font-size:10px;color:var(--aq-text);margin-top:2px}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;border:1px solid currentColor;padding:0 3px;border-radius:1px;color:var(--muted);font-weight:600}
+.tag.risk{color:var(--alarm)}
+/* §7.9 the evidence drawer. One step heavier than a panel because it is an affordance, not a surface. */
+details.evi{border:1px solid var(--rule2);border-radius:var(--rad);background:var(--panel)}
+details.evi>summary{padding:10px 12px;cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px;position:relative}
+details.evi>summary::-webkit-details-marker{display:none}
+details.evi>summary::after{content:"open";position:absolute;right:11px;top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border:1px solid var(--rule2);padding:1px 4px}
+details.evi[open]>summary::after{content:"close"}
+details.evi[open]>summary{border-bottom:1px solid var(--rule)}
+.eh{font-size:13px;font-weight:600}
+.es{font-size:10.5px;color:var(--muted);max-width:46ch;line-height:1.4}
+.fwrap{padding:2px 12px 12px}
+.fg{border-top:1px solid var(--rule);padding:7px 0}
+.fg:first-child{border-top:0}
+.fg h5{margin:0 0 3px;font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--ink2)}
+.fr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;font-size:10.5px;padding:2px 0;color:var(--muted)}
+.fr b{font-family:var(--mono);color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kind{font-family:var(--mono);font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;padding:0 2px;margin-left:4px}
+.kind.estimate{color:var(--alarm)}
+.kind.measured{color:var(--ok)}
+/* The drawer's answer to a rung: the group and the one row it used. */
+.fg.hit{background:var(--sunk)}
+.fr.hit{background:var(--sunk);border-left:2px solid var(--aq-text);padding-left:6px}
+.fr.hit b{color:var(--ink)}
+details.ed{border:1px solid var(--rule2);border-radius:var(--rad);background:var(--panel)}
+details.ed>summary{padding:10px 12px;cursor:pointer;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--ink2);display:flex;align-items:center;gap:8px;list-style:none}
+details.ed>summary::-webkit-details-marker{display:none}
+details.ed>summary::after{content:"edit";margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);border:1px solid var(--rule2);padding:1px 4px}
+details.ed[open]>summary::after{content:"close"}
+.edbody{padding:2px 12px 14px;border-top:1px solid var(--rule)}
+.step{padding:12px 0;border-bottom:1px solid var(--rule)}
+.step:last-of-type{border-bottom:0}
+.steph{font-size:13px;font-weight:600;margin-bottom:8px}
+.steph em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--muted);margin-right:6px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.pchip{display:flex;flex-direction:column;gap:1px;align-items:flex-start;border:1px solid var(--ctl);padding:6px 10px;border-radius:var(--rad);font-size:13px;font-weight:600;min-width:0;min-height:44px}
+.pchip small{font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400}
+.pchip:hover{border-color:var(--ink)}
+.pedit{display:grid;grid-template-columns:minmax(0,1fr) 66px;gap:8px;margin-top:10px;padding:10px;border:1px solid var(--rule);background:var(--sunk);border-radius:var(--rad)}
+@media(min-width:620px){.pedit{grid-template-columns:minmax(0,1fr) 66px minmax(0,1fr) auto}}
+.pedit label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
+.pedit input,.pedit select{width:100%;min-width:0;border:1px solid var(--ctl);background:var(--panel);padding:0 7px;min-height:36px;border-radius:var(--rad);font-size:13px}
+.pedit .box{display:flex;flex-direction:column;gap:4px;justify-content:flex-end}
+.pedit .box label{display:flex;align-items:center;gap:6px;font-family:var(--sans);font-size:13px;letter-spacing:0;text-transform:none;color:var(--ink2);font-weight:400;margin:0}
+.pedit .box input{width:16px;min-height:16px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(min-width:560px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.cards.five{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.rc{position:relative;display:block;cursor:pointer;min-width:0}
+.rc input{position:absolute;opacity:0;width:1px;height:1px}
+.rcb{display:flex;flex-direction:column;gap:1px;border:1px solid var(--ctl);border-radius:var(--rad);padding:8px 9px;min-height:48px;font-size:13px;font-weight:600}
+.rcb small{font-size:10.5px;color:var(--muted);font-weight:400;line-height:1.3}
+.rc input:checked+.rcb{border-color:var(--ink);outline:1px solid var(--ink);outline-offset:-2px}
+.rc:hover .rcb{border-color:var(--ink)}
+.rc input:focus-visible+.rcb{outline:2px solid var(--ink);outline-offset:2px}
+.acts{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+#saveNote{font-family:var(--mono);font-size:10px;color:var(--muted)}
+/* A first-run notice, not an error: the numbers are right for someone, just not for this person. */
+.samplebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 11px;margin-top:12px;border:1px solid var(--rule2);border-left:3px solid var(--ink);border-radius:var(--rad);background:var(--panel);font-size:13px;line-height:1.45;color:var(--ink2)}
 .samplebar b{color:var(--ink);font-weight:600}
-.samplebar .btn{flex:0 0 auto;min-height:32px;padding:0 10px;font-size:11.5px}
-.colophon{margin-top:24px;padding-top:10px;border-top:1px solid var(--rule);font-family:var(--mono);
-font-size:9.5px;color:var(--muted);display:flex;gap:8px 16px;flex-wrap:wrap;line-height:1.5}
+.samplebar .btn{flex:0 0 auto;min-height:32px;padding:0 10px;font-size:13px}
+.colophon{margin-top:24px;padding-top:10px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;gap:8px 16px;flex-wrap:wrap;line-height:1.5}
 .colophon b{color:var(--ink2);font-weight:500}
+#locpanel{margin-top:9px}
+#q{width:100%;border:1px solid var(--ctl);background:var(--panel);padding:0 10px;min-height:36px;border-radius:var(--rad);font-size:13px}
+.edwrap{margin-top:12px}
+#personNote{margin-top:10px}
+#results{margin-top:6px;border:1px solid var(--rule2);max-height:220px;overflow:auto;border-radius:var(--rad);background:var(--panel);box-shadow:0 10px 24px -12px rgba(17,20,23,.35)}
 [hidden]{display:none!important}
-@media(prefers-contrast:more){:root{--rule:#8a8375;--rule2:#6b6558;--muted:#43413b}
-html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media(prefers-contrast:more){:root{--muted:#3f423f;--rule2:#7c7a6f;--ctl:#4a4a44;--rule:#bdb9ae}html[data-theme="dark"]{--muted:#d8d6cf;--rule2:#7f868b;--ctl:#a6acae;--rule:#3a4045}}
+@media(prefers-reduced-motion:reduce){
+*{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.progress .seg.now::after{animation:none;transform:none;width:24px}}
 </style>
 </head>
 <body>
@@ -354,17 +323,17 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
   <div class="bar">
     <span class="mark">Saans<span>.</span></span>
     <button class="chip" id="placeBtn" type="button" aria-expanded="false" aria-controls="locpanel"><span id="place">Delhi</span></button>
-    <span class="chip" style="border:0;padding:0 2px"><span class="live" id="liveDot"></span><span id="clock">--:--</span></span>
+    <span class="chip clock"><span class="live" id="liveDot"></span><span id="clock">--:--</span></span>
     <span class="spacer"></span>
     <button class="chip" id="themeBtn" type="button" aria-pressed="false" aria-label="Switch to dark appearance">Dark</button>
   </div>
 
-  <div id="locpanel" style="margin-top:9px" hidden>
+  <div id="locpanel" hidden>
     <label class="sr" for="q">Search for a place</label>
     <input id="q" placeholder="District or city" autocomplete="off"
-      style="width:100%;border:1px solid var(--rule2);background:var(--panel);padding:8px 10px;border-radius:var(--rad);font-size:13px">
+      >
     <div id="results" role="listbox" aria-label="Matching places"
-      style="margin-top:6px;border:1px solid var(--rule);max-height:220px;overflow:auto;border-radius:var(--rad)"></div>
+></div>
   </div>
 
   <main id="main" tabindex="-1">
@@ -372,11 +341,15 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
       <span><b>These numbers are for a sample household</b> — four people, gas stove, two-wheeler. Nothing below is about you yet.</span>
       <button class="btn ghost" id="sampleSet" type="button">Describe yours</button>
     </div>
-    <section class="hero" aria-label="Today">
+    <div class="hero" aria-label="Today">
       <div>
         <div class="kicker"><span id="kicker">Delhi · PM2.5</span></div>
-        <h1 class="verdict" id="verdict">Reading the air…</h1>
-        <div class="ladder" id="ladder" aria-label="From outdoor air to what a person inhales"></div>
+        <div class="plate" id="plate">
+          <p class="platehead" id="platehead">Reading the air</p>
+          <h1 class="verdict" id="verdict">Reading the air…</h1>
+          <p class="platemeta" id="platemeta"></p>
+        </div>
+        <div class="ladder" id="ladder" role="group" aria-label="From outdoor air to what a person inhales"></div>
         <p class="unitline" id="unitline"></p>
       </div>
       <div>
@@ -391,7 +364,7 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
           <div class="readout" id="readout" aria-live="polite"></div>
         </div>
       </div>
-    </section>
+    </div>
 
     <section class="bench" aria-label="Build your own plan">
       <div class="benchhead">
@@ -427,7 +400,7 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
     <section class="sec" aria-label="Who carries it">
       <div class="sechead"><h2>Who carries it</h2><span class="aside">daily inhaled dose, µg</span></div>
       <div class="people" id="people"></div>
-      <p class="prose" id="personNote" style="margin-top:9px;font-size:12.5px"></p>
+      <p class="prose" id="personNote"></p>
     </section>
 
     <section class="sec" aria-label="Every option, ranked">
@@ -444,7 +417,7 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
         </summary>
         <div class="fwrap" id="factors"></div>
       </details>
-      <div style="margin-top:11px">
+      <div class="edwrap">
         <details class="ed" id="ed"><summary>Your household</summary><div class="edbody" id="edbody"></div></details>
       </div>
       <div class="colophon">
@@ -472,20 +445,23 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
 };
 const HK = "saans.household.v1", THEME_KEY = "saans.theme", PICKS_KEY = "saans.picks.v1", DONE_KEY = "saans.done.v1";
-const ACCENT = {
-  light:{ good:"#2e7a4f", satisfactory:"#637225", moderate:"#8b6508", poor:"#b4501f", very_poor:"#b02a1e", severe:"#6d1410" },
-  dark:{ good:"#7fd6a4", satisfactory:"#c3cf7a", moderate:"#e6c05a", poor:"#ff9d66", very_poor:"#f08b7d", severe:"#dba096" }
-};
+const AQ = ["good","satisfactory","moderate","poor","very_poor","severe"];
 let LAST = null, PICKS = [], SEL_PERSON = null, HOUR = null;
 
 function mode() { const t = store.get(THEME_KEY, null);
   return (t === "dark" || t === "light") ? t : (mq("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+/* The engine supplies the category string; the stylesheet decides both tracks.
+   Nothing is set before a category arrives: the default tokens are neutral,
+   because a fresh page must not claim clean air. */
+function paintAq() {
+  const slug = (LAST && LAST.brief && LAST.brief.aqi && LAST.brief.aqi.slug) || "";
+  if (AQ.indexOf(slug) !== -1) document.documentElement.dataset.aq = slug;
+  else document.documentElement.removeAttribute("data-aq");
+}
 function paintTheme() {
   const m = mode();
   document.documentElement.dataset.theme = m;
-  const set = ACCENT[m] || ACCENT.light;
-  const slug = (LAST && LAST.brief && LAST.brief.aqi && LAST.brief.aqi.slug) || "poor";
-  document.documentElement.style.setProperty("--accent", set[slug] || set.poor);
+  paintAq();
   const b = $("#themeBtn");
   b.textContent = m === "dark" ? "Light" : "Dark";
   b.setAttribute("aria-pressed", String(m === "dark"));
@@ -513,10 +489,9 @@ const DEFAULTS = {
   office:true
 };
 function household() { const h = store.get(HK, null); return h && h.people ? h : JSON.parse(JSON.stringify(DEFAULTS)); }
-/* Is what we are showing this person's household, or the four sample people?
-   Every number on the page depends on the answer, and before this the page
-   asserted "Amma carries 37.6% of the household's dose" to someone who had never
-   mentioned an Amma. */
+/* Is this person's household, or the four sample people? Every number on the
+   page depends on the answer, and this once asserted "Amma carries 37.6%" to
+   someone who had never mentioned an Amma. */
 function isSample() { const h = store.get(HK, null); return !(h && h.people); }
 
 function tickClock() {
@@ -537,6 +512,38 @@ async function post(path, body) {
 
 /* An imperative, from elevated_now and the forward window. Never worst_hour:
    that is a max over 0..23 and is usually in the past. */
+/* The plate's anatomy: a header naming category, clock and place, and one
+   comparative figure. Both come from the brief. The category word takes the
+   accent and also carries the word, so colour never carries meaning alone. */
+function paintPlate(b, nowHour) {
+  const head = $("#platehead"), meta = $("#platemeta");
+  if (!head || !meta) return;
+  head.textContent = "";
+  const a = b.aqi || {};
+  head.appendChild(el("span", "cat", a.label || "Reading"));
+  head.appendChild(el("span", "sep", "·"));
+  head.appendChild(document.createTextNode(pad2(nowHour) + ":00"));
+  const city = (b.profile && b.profile.city) || (household().location || {}).city || "";
+  if (city) {
+    head.appendChild(el("span", "sep", "·"));
+    head.appendChild(document.createTextNode(city));
+  }
+  meta.textContent = "";
+  const who = b.who || {};
+  if (who.multiple !== undefined && who.multiple !== null) {
+    const m = el("span");
+    m.appendChild(el("b", null, who.multiple + "×"));
+    m.appendChild(document.createTextNode(" the WHO 24-hour guide"));
+    meta.appendChild(m);
+  }
+  if (a.aqi !== undefined) {
+    if (meta.childNodes.length) meta.appendChild(el("span", "sep", " · "));
+    meta.appendChild(document.createTextNode("AQI " + a.aqi));
+  }
+  if (!meta.childNodes.length) meta.appendChild(document.createTextNode(
+    "No reading yet."));
+}
+
 function verdictText(b) {
   const aqi = (b.aqi && b.aqi.aqi) || 0;
   const tr = b.next_trough || {}, pk = b.next_peak || {};
@@ -551,13 +558,9 @@ function verdictText(b) {
 }
 
 /* The chain the engine computes: outdoor -> indoor -> stove -> a person's day.
-   Showing the chain is the argument: a city number is not a dose.
-
-   The three concentrations share one scale, because they are the same unit and
-   the gaps between them are the point. The daily dose is NOT on that scale: it
-   is µg accumulated over a day, not µg/m³ at a moment, and putting the two on
-   one bar made 205 µg/m³ render as a sliver beside 1791 µg/day. It gets its own
-   treatment instead. */
+   The three concentrations share one scale because they are the same unit; the
+   daily dose does not, because µg accumulated over a day is not µg/m³ at a
+   moment, and one bar for both made 205 µg/m³ a sliver beside 1791 µg/day. */
 
 /* "Amma's" but "your". The household names its own people, so the possessive
    has to survive whatever they typed — "You's 1,096 µg" was the first thing
@@ -579,13 +582,10 @@ function renderLadder(b) {
   // Only the concentrations scale against each other.
   const concMax = Math.max(amb || 1, ind || 1, kit || 1);
   const hh = household();
-  /* Every rung is an anchor into the evidence drawer, and the group it opens is
-     the constant that produced the number above it: the WHO reference the
-     outdoor figure is measured against, the envelope fraction that turns
-     outdoor into indoor, the kitchen constant for this household's own fuel,
-     and the inhalation rates that turn a concentration into a daily dose.
-     A rung with no relating constant would be a dead control, so a rung with no
-     ev field stays a plain div. */
+  /* Each rung opens the constant that produced the number above it: the WHO
+     reference, the envelope fraction, the kitchen constant for this household's
+     own fuel, the inhalation rates. A rung with no relating constant would be a
+     dead control, so a rung without an ev field stays a plain div. */
   const rungs = [
     { lab:"outdoor", val:amb, unit:"µg/m³", scale:true, dim:false,
       why:"what the street is doing now",
@@ -640,7 +640,7 @@ function renderLadder(b) {
     u.textContent = "";
     if (worst && worst.cigarettes !== undefined && worst.cigarettes !== null) {
       const n = Math.round(worst.cigarettes * 10) / 10;
-      u.appendChild(el("span", "ul", "the unit"));
+      u.appendChild(el("span", "ul", "the unit \u2014"));
       u.appendChild(document.createTextNode(" " + possessive(worst.name) + " " +
         Math.round(worst.dose_ug).toLocaleString("en-IN") + " µg a day is about " +
         n.toFixed(1) + (n === 1 ? " cigarette\u2019s" : " cigarettes\u2019") +
@@ -806,7 +806,7 @@ async function runCombine() {
   const token = ++combineToken;
   $("#pickCount").textContent = PICKS.length + " chosen";
   if (!PICKS.length) {
-    $("#cutPct").textContent = ""; $("#cutPct").appendChild(el("small", null, "0%"));
+    $("#cutPct").textContent = "0"; $("#cutPct").appendChild(el("small", null, "%"));
     $("#cutSub").textContent = "Nothing chosen yet.";
     $("#cutBand").textContent = ""; $("#overlap").hidden = true;
     $("#conflict").hidden = true; $("#ppl").textContent = "";
@@ -884,24 +884,14 @@ function doneMap() {
 function isDone(k) { return !!doneMap()[k]; }
 function markDone(k, on) { const m = doneMap(); if (on) m[k] = 1; else delete m[k]; store.set(DONE_KEY, m); }
 
-/* ---------------------------------------------------------------------------
-   THE PLAN ARRIVES TWICE: actions first, words second.
-
-   narrator.skeleton() is pure Python over the brief, so the actions, their
-   times and their effects exist ~20 ms after the household is known. The three
-   paragraphs need a 4B model and take 30-90 s. The panel used to show only a
-   spinner and a token tail for that whole wait, hiding content the client could
-   already have. Now it renders the action rail on first paint, reserves the
-   three prose slots at their final height, and then streams words into them.
-   The same three slots are filled by the deterministic fallback when the model
-   is absent or fails, so the DOM is identical either way.
---------------------------------------------------------------------------- */
-let SKEL = null;
-
-/* The five figures beside the opening paragraph. The server sends them with the
-   finished plan; before it arrives they are read from the same brief and
-   skeleton fields the server reads, so the row is the right size and no space
-   is reserved for something that may never come. No arithmetic happens here. */
+/* THE PLAN ARRIVES TWICE: actions first, words second. narrator.skeleton() is
+   pure Python over the brief, so the rail exists ~20 ms after the household is
+   known; the three paragraphs need a 4B model and take 30-90 s. Render the rail
+   on first paint, reserve the prose slots at their final height, then stream into
+   them. The deterministic fallback fills the same slots. */
+/* The same five figures the server sends with the finished plan. Before it
+   arrives they are read from the brief and skeleton fields the server reads, so
+   the strip is the right size from 0 s. No arithmetic happens here. */
 function planFigures(p) {
   if (p.figures && p.figures.length) return p.figures;
   const b = LAST && LAST.brief;
@@ -917,15 +907,30 @@ function planFigures(p) {
   ];
 }
 
-/* A prose slot exists from the first paint whether or not it has words yet. Its
-   min-height is in the stylesheet, so the rail never moves when text lands. */
+/* Both the skeleton paint and the finished plan build the strip here, so the
+   two cannot drift in markup. */
+function figStrip(list) {
+  if (!list || !list.length) return null;
+  const box = el("div", "planfigs");
+  list.forEach(f => {
+    const c = el("div", "fc");
+    c.appendChild(el("div", "l", f.label));
+    const v = el("div", "v", f.value);
+    if (f.unit) v.appendChild(el("small", null, " " + f.unit));
+    c.appendChild(v); box.appendChild(c);
+  });
+  return box;
+}
+
+/* A slot exists from first paint whether or not it has words. Its min-height is
+   in the stylesheet, so the rail never moves when the text lands. */
 function planSlot(name, cls) {
   const s = el("p", cls + " slot");
   s.dataset.slot = name;
   return s;
 }
 
-function renderPlan(p, factsMeta) {
+function renderPlan(p) {
   const box = $("#plan"); box.textContent = "";
   const gen = p.generated_by || "skeleton";
   $("#planby").textContent = gen === "skeleton" ? "from your numbers"
@@ -937,15 +942,8 @@ function renderPlan(p, factsMeta) {
   if (p.opening) opening.textContent = p.opening;
   wrap.appendChild(opening);
 
-  const figs = el("div", "planfigs");
-  planFigures(p).forEach(f => {
-    const c = el("div", "fc");
-    c.appendChild(el("div", "l", f.label));
-    const v = el("div", "v", f.value);
-    if (f.unit) v.appendChild(el("small", null, " " + f.unit));
-    c.appendChild(v); figs.appendChild(c);
-  });
-  if (figs.childNodes.length) wrap.appendChild(figs);
+  const figs = figStrip(planFigures(p));
+  if (figs) wrap.appendChild(figs);
 
   const kids = planSlot("children", "prose");
   if (p.for_children) kids.textContent = p.for_children;
@@ -967,7 +965,7 @@ function renderPlan(p, factsMeta) {
     if (t.effort) meta.push(t.effort);
     if (meta.length) row.appendChild(el("div", "rmeta", meta.join(" · ")));
     const foot = el("div", "rfoot");
-    const db = el("button", "doneBtn", isDone(key) ? "done ✓" : "mark done");
+    const db = el("button", "doneBtn", isDone(key) ? "done" : "mark done");
     db.type = "button";
     db.setAttribute("aria-pressed", String(isDone(key)));
     db.setAttribute("aria-label", (isDone(key) ? "Mark not done: " : "Mark done: ") + (t.action || ""));
@@ -975,7 +973,7 @@ function renderPlan(p, factsMeta) {
       const now = !isDone(key);
       markDone(key, now);
       db.setAttribute("aria-pressed", String(now));
-      db.textContent = now ? "done ✓" : "mark done";
+      db.textContent = now ? "done" : "mark done";
       db.setAttribute("aria-label", (now ? "Mark not done: " : "Mark done: ") + (t.action || ""));
       row.classList.toggle("isdone", now);
     });
@@ -1013,15 +1011,13 @@ async function paintSkeleton() {
   try {
     const skel = await post("/api/skeleton", household());
     if (!skel || !skel.today) return false;
-    SKEL = skel;
-    renderPlan(Object.assign({}, skel, { generated_by:"skeleton" }), null);
+    renderPlan(Object.assign({}, skel, { generated_by:"skeleton" }));
     return true;
   } catch (e) { return false; }
 }
 
-/* Three steps, driven by real events and never by a timer: the segments say
-   which stage the wording is in, and the character count is the only honest
-   measure of progress a 30-90 second generation offers. */
+/* Three steps driven by real events, never a timer, plus a character count —
+   the only honest progress a 30-90 s generation offers. */
 function planProgress(wrap, slotEl) {
   const box = el("div", "progress");
   const dot = el("i", "pdot");
@@ -1046,9 +1042,8 @@ function planProgress(wrap, slotEl) {
   };
 }
 
-/* Pull a complete JSON string value out of the partially received model output.
-   only complete, parseable strings are accepted, so the slot never shows half
-   an escape sequence or a fragment of the next key. */
+/* A complete, parseable JSON string value out of partial model output, so the
+   slot never shows half an escape sequence. */
 function partialJSON(buf, key) {
   const m = new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"').exec(buf);
   if (!m) return "";
@@ -1073,7 +1068,7 @@ async function streamProse() {
     children: wrap.querySelector('[data-slot="children"]'),
     limit: wrap.querySelector('[data-slot="limit"]')
   };
-  let chars = 0, buf = "", gotToken = false, finalObj = null, factsMeta = null;
+  let chars = 0, buf = "", gotToken = false, finalObj = null;
   const slow = setTimeout(() => {
     prog.note("still working · the actions above are final");
   }, 15000);
@@ -1112,10 +1107,7 @@ async function streamProse() {
           raw.hidden = false;
           raw.textContent = ("…" + buf).slice(-260);
         } else if (obj && obj.facts) {
-          factsMeta = obj;
           prog.phase(1, "Choosing what to say");
-        } else if (obj && obj.error) {
-          factsMeta = { error: obj.error };
         } else if (obj && obj.today) {
           finalObj = obj;
         }
@@ -1132,16 +1124,9 @@ async function streamProse() {
       $("#planby").textContent = gen === "deterministic" ? "built-in wording" : "worded on this device";
       if (finalObj.figures && finalObj.figures.length) {
         const old = wrap.querySelector(".planfigs");
-        if (old) wrap.removeChild(old);
-        const figs = el("div", "planfigs");
-        finalObj.figures.forEach(f => {
-          const c = el("div", "fc");
-          c.appendChild(el("div", "l", f.label));
-          const v = el("div", "v", f.value);
-          if (f.unit) v.appendChild(el("small", null, " " + f.unit));
-          c.appendChild(v); figs.appendChild(c);
-        });
-        wrap.insertBefore(figs, wrap.querySelector('[data-slot="children"]'));
+        const figs = figStrip(finalObj.figures);
+        if (old) wrap.replaceChild(figs, old);
+        else wrap.insertBefore(figs, wrap.querySelector('[data-slot="children"]'));
       }
       const f = wrap.querySelector(".planfoot");
       if (f) {
@@ -1155,7 +1140,7 @@ async function streamProse() {
       }
     } else {
       prog.remove(); raw.hidden = true;
-      wordingFailed(wrap, factsMeta && factsMeta.error ? "error" : "timeout");
+      wordingFailed(wrap);
     }
   } catch (err) {
     clearTimeout(slow);
@@ -1164,9 +1149,9 @@ async function streamProse() {
   }
 }
 
-/* Fill the three slots that already exist. Never re-renders the rail: the
-   actions came from the same skeleton the server used, so replacing them would
-   only cost a flicker. */
+/* Fill the slots that already exist. The rail is never re-rendered: the actions
+   came from the same skeleton the server used, so replacing them is a flicker
+   for nothing. */
 function fillPlanSlots(wrap, p) {
   const set = (name, text) => {
     const s = wrap.querySelector('[data-slot="' + name + '"]');
@@ -1180,19 +1165,17 @@ function fillPlanSlots(wrap, p) {
   set("limit", p.what_this_does_not_fix);
 }
 
-/* A failed paragraph is not an error state for the product. The numbers above
-   are untouched and still correct; only the words are missing. One retry, then
-   the retry is removed so this cannot become a loop. */
+/* A failed paragraph is not an error state: the numbers are untouched and still
+   correct, only the words are missing. One retry, then the retry is removed so
+   this cannot become a loop. */
 let wordingTries = 0;
-function wordingFailed(wrap, why) {
+function wordingFailed(wrap) {
   const box = $("#plan");
   $("#planby").textContent = "from your numbers";
   const s = wrap.querySelector('[data-slot="opening"]');
   if (s) {
     s.classList.remove("pending");
-    s.textContent = (why === "timeout"
-      ? "The wording took too long. "
-      : "The wording did not arrive. ") + "Your numbers are unchanged.";
+    s.textContent = "The wording did not arrive. Your numbers are unchanged.";
   }
   $("#planMsg").textContent = "The wording did not arrive. The actions and figures are unchanged.";
   const old = wrap.querySelector(".again");
@@ -1219,14 +1202,10 @@ async function loadPlan() {
   await streamProse();
 }
 
-/* Refresh the plan's numbers without re-wording them.
-
-   Editing a child's age changes every dose, so the rail must be rebuilt — but
-   the words already on screen were written for the previous household, and
-   re-generating them costs 30-90 seconds. This fetches the real skeleton from
-   the server (the same function the model path uses, so the two cannot drift),
-   keeps the existing prose, and says plainly that the words belong to the
-   previous household. */
+/* Refresh the plan's numbers without re-wording them. Editing a child's age
+   changes every dose, so the rail is rebuilt, but re-generating the words costs
+   30-90 s. This fetches the real skeleton (the same function the model path
+   uses), keeps the prose, and says the words describe the previous household. */
 async function refreshPlanNumbers() {
   const box = $("#plan");
   if (!box || !LAST) return;
@@ -1241,11 +1220,10 @@ async function refreshPlanNumbers() {
   try {
     const skel = await post("/api/skeleton", household());
     if (!skel || !skel.today) { await loadPlan(); return; }
-    SKEL = skel;
     renderPlan(Object.assign({}, skel, {
       opening: opening, for_children: kids, what_this_does_not_fix: limit,
       generated_by: wasModel ? "model" : "deterministic"
-    }), null);
+    }));
     if (wasModel && opening) {
       const note = el("p", "limit", "The wording above describes the previous household. The numbers have been recalculated.");
       box.appendChild(note);
@@ -1615,7 +1593,8 @@ async function boot(regen) {
     const h1 = $("#verdict"); h1.textContent = "";
     h1.appendChild(document.createTextNode(v.lead));
     if (v.tail && v.tail !== ".") h1.appendChild(el("span", "em", v.tail + v.climb));
-    else h1.appendChild(document.createTextNode(v.climb || "."));
+    else h1.appendChild(document.createTextNode("." + (v.climb || "")));
+    paintPlate(b, hh);
     $("#kicker").textContent = ((b.profile && b.profile.city) || "Delhi") + " · PM2.5 " +
       fmt(b.ambient_pm25) + " · AQI " + (b.aqi && b.aqi.aqi) + " " + ((b.aqi && b.aqi.label) || "");
     $("#liveDot").className = "live" +
