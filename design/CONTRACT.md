@@ -51,6 +51,12 @@ today.* Then close it. Then come back tomorrow because it remembered.
    - `GET /api/factors` → `{groups:{...}, method:[], limits:[]}`
    - `POST /api/plan` → SSE events `facts`, `token`, `plan`, `done`
    - `POST /api/simulate` → `{key}` + household → before/after
+   - `POST /api/brief`, `/api/skeleton`, `/api/plan`, `/api/combine` all take the
+     **same flat household body** (`location`, `home`, `habits`, `transport`,
+     `people`, `office`, `tone`). `/api/simulate` and `/api/auth`-style wrappers
+     are the only ones that nest it. Two shapes for one concept is how every
+     configured household was silently replaced by the default four-person
+     family — see commit 26bbdd9. Never reintroduce a second shape.
 2. **Plan streaming** — must read SSE via `fetch` + `getReader()`, render
    `figures[]`, `today[]` (time/action/why/effect/who/who_pct/effort),
    `the_one_thing` (action/why/effect/band/cost_inr/who/who_pct/source),
