@@ -145,7 +145,7 @@ on a vertical time rail, with the single biggest action marked *the one thing*.
 The model's prose sits above and below the actions, never interleaved: the
 actions are the calculation's, and must not be mistaken for prose.
 
-**Level 3 — the numbers behind this.** The 14 interventions scored by measured
+**Level 3 — the numbers behind this.** The 15 interventions scored by measured
 benefit per rupee with each person's dose before and after; per-person inhaled
 dose and sensitivity share; source apportionment; the household's own emissions;
 and an evidence drawer listing all 56 constants with source and kind, generated
@@ -164,7 +164,7 @@ labelled seasonal climatology and says so on screen.
 
 ### Efficiency
 
-`rank()` — 14 interventions × 3 uncertainty scenarios × every person's full day —
+`rank()` — 15 interventions × 3 uncertainty scenarios × every person's full day —
 takes 39 ms. A single `evaluate()` is 0.4 ms. Responses are cached 15 minutes.
 The whole front end is one HTML file with no dependencies and no build step.
 
@@ -308,7 +308,7 @@ saans/
   constants.py   every factor, with source and kind (measured/standard/estimate)
   aqi.py         CPCB AQI breakpoints, GRAP stages, NCR test, WHO bands
   engine.py      mass balance, per-person day model, dose, emissions
-  advisor.py     14 interventions, patched and re-run, then ranked
+  advisor.py     15 interventions, patched and re-run, then ranked
   sources.py     source apportionment profiles
   data.py        Open-Meteo / CAMS, geocoding, labelled offline fallback
   narrator.py    fact sheet, token boundary, enforcement, fallback prose

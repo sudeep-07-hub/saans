@@ -148,9 +148,9 @@ def main() -> int:
 
         # --- /api/combine: same contract, plus its own bounds -------------
         st, _, body = req(base + "/api/combine", "POST",
-                          {"household": {}, "keys": ["nonexistent_intervention"]})
+                          {"keys": ["nonexistent_intervention"]})
         check("combine rejects an unknown key with 404", st == 404, str(st))
-        st, _, body = req(base + "/api/combine", "POST", {"household": {}, "keys": []})
+        st, _, body = req(base + "/api/combine", "POST", {"keys": []})
         # Parse rather than substring-match: json.dumps puts a space after the
         # colon, so b'"pct": 0' is not stable formatting.
         empty_ok = False
@@ -160,10 +160,15 @@ def main() -> int:
             empty_ok = False
         check("combine accepts an empty set", empty_ok, f"{st} {body[:60]!r}")
         # An unbounded list is a cheap denial of service: each key re-runs a
-        # whole day per person per scenario.
-        too_many = ["cleaner"] * 15
-        st, _, _ = req(base + "/api/combine", "POST", {"household": {}, "keys": too_many})
+        # whole day per person per scenario. The cap is the catalogue size (15),
+        # so the overflow case must exceed it — a request exactly AT the cap is
+        # legitimate and a full-catalogue call is now accepted.
+        too_many = ["cleaner"] * 16
+        st, _, _ = req(base + "/api/combine", "POST", {"keys": too_many})
         check("combine caps the key list", st == 422, str(st))
+        from saans.advisor import CATALOGUE as _CAT
+        st, _, _ = req(base + "/api/combine", "POST", {"keys": sorted(_CAT)})
+        check("combine accepts the whole catalogue", st == 200, str(st))
 
         # --- SSE endpoint streams and terminates -------------------------
         import http.client

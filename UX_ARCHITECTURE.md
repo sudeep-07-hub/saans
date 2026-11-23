@@ -279,7 +279,7 @@ the substance and exists before the prose does.
 | Sub-component | Purpose | Data | States | Absent |
 |---|---|---|---|---|
 | Header + `planby` | Attribution: who wrote the words | `plan.generated_by` | `streaming` → `Drafting`; `deterministic` → `built-in wording`; else `worded on this device` | `—` |
-| Skeleton rows (0–90s) | The 5 actions, times and figures, available before any prose | `brief.ranked` top 3 + `next_trough` (**and** `plan.facts` if the server emits actions in it — see §5.4) | `provisional` (dotted left rule, label `from your numbers`) → `confirmed` | Fall back to 3 rows; if `ranked` is empty, no skeleton. |
+| Skeleton rows (0–90s) | The day's actions, times and figures (2–5: most are gated on aqi>=201, so a Moderate day yields fewer), available before any prose | `brief.ranked` top 3 + `next_trough` (**and** `plan.facts` if the server emits actions in it — see §5.4) | `provisional` (dotted left rule, label `from your numbers`) → `confirmed` | Fall back to 3 rows; if `ranked` is empty, no skeleton. |
 | Opening prose | Register, not reasoning | `plan.opening` (SSE `token` chunks) | `waiting` / `streaming` (caret) / `ready` / `failed` (figures-only) | Prose slot collapses to 0 height; figures and rail remain. |
 | Figures strip, 5 cells | The numbers the plan is anchored on | `plan.figures[].label/.value/.unit` | `ready` / `partial` (fewer than 5) | Cells absent are omitted, grid auto-fits. Never a blank cell. |
 | Children paragraph | The sentence aimed at the 7-year-old | `plan.for_children` | `ready` / absent | Omitted silently. |
@@ -492,7 +492,7 @@ This is a different product for this household and the UI must say so within one
 
 **Governing principle: the plan's *content* is available in 40ms; only its *wording* is
 slow.** Never show a spinner for something whose substance you already have. The panel is
-therefore fully populated with the five actions, times, effects, and the one marked
+therefore fully populated with the day's actions, times, effects, and the one marked
 action before a single token arrives. What the 4B model adds is three paragraphs of
 register — genuinely valuable, and never allowed to be load-bearing.
 
@@ -553,7 +553,7 @@ prose gets a complete plan at 15s and stops paying for the wait.
 Status reads `This can take up to 90 seconds on a household device.` and a new button
 appears: `Skip the wording`. Pressing it — or reaching **100s** without a `plan` event —
 renders the **local deterministic plan** built from the `brief` already in memory: the same
-five actions, `planby` reads `built-in wording`, and the prose slot shows the three
+actions, `planby` reads `built-in wording`, and the prose slot shows the three
 sentences the server would have templated (the client already holds every figure needed).
 The SSE request is aborted. This state is **indistinguishable in content** from success,
 only in attribution — which is exactly what `generated_by: "deterministic"` already means
@@ -594,7 +594,7 @@ changes, two of them purely client-side:
 
 1. On `token`: append `obj.text` (or the chunk's field) to the prose buffer, honouring the
    45 char/s cap.
-2. On `facts`: if it carries the five actions and times, replace the provisional rows with
+2. On `facts`: if it carries the actions and times, replace the provisional rows with
    them. **NEW FIELD (optional, 0.5 day):** have the server put `today: [{time, action,
    effect, who}]` into the `facts` event. Without it, the client derives the same five
    from `brief.ranked`; the UI is correct either way, so this is an optimisation, not a

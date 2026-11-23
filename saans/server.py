@@ -165,7 +165,7 @@ class CombineRequest(Household):
     Also bounded: each key re-evaluates a whole day per person per scenario, so an
     unbounded list is a cheap denial of service. 14 is the catalogue size.
     """
-    keys: list[str] = Field(default_factory=list, max_length=14)
+    keys: list[str] = Field(default_factory=list, max_length=15)
 
 
 def to_models(h: Household):
