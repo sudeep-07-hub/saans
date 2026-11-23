@@ -6,7 +6,6 @@
 <meta name="color-scheme" content="light dark">
 <title>Saans — what the air costs your household</title>
 <style>
-/* SAANS — "Notice & Plate": grey-white sheet, form grid, hairline rules, one near-black plate per screen. */
 :root{--paper:#eeedea;--panel:#f8f7f4;--sunk:#e0dfda;--plate:#111417;--plate-ink:#f7f6f1;--ink:#111417;--ink2:#383d41;--muted:#5b605e;--rule:#d3d1ca;--rule2:#b6b2a8;--ctl:#7f7a6e;--alarm:#8f1420;--ok:#1d6b45;--knob-ink:#fbfaf6;--well:#1b1f24;--plate-muted:#a6aaa7;--alarm-plate:#ff8a80;--rule-plate:#41464b;--aq-text:#5b605e;--aq-lift:#939a97;--serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;--rad:2px;--fh2:20px;--fh3:14px;--d1:90ms;--ease:cubic-bezier(.2,0,0,1);}
 html[data-theme="dark"]{--paper:#0e1012;--panel:#16191c;--sunk:#08090a;--plate:#060708;--plate-ink:#f7f6f1;--ink:#efefeb;--ink2:#c2c6c4;--muted:#939a97;--rule:#2b2f33;--rule2:#41464b;--ctl:#737a7d;--alarm:#ff8a80;--ok:#5fd39b;--knob-ink:#0b0d0e;--well:#14171b;--plate-muted:#9aa09d;--alarm-plate:#ff8a80;--rule-plate:#41464b;--aq-text:#5ccf92;--aq-lift:#5ccf92;}
 /* The AQI accent. */
@@ -64,7 +63,6 @@ html[data-theme="dark"] .plate{border:1px solid var(--rule2);border-bottom:4px s
 .verdict .em{font-style:italic;color:var(--aq-lift)}
 .platemeta{font-family:var(--mono);font-size:10.5px;color:var(--plate-muted);margin-top:16px;letter-spacing:.04em;min-height:14px}
 .platemeta b{color:var(--plate-ink);font-weight:500}
-/* A plate's failure is not the page's failure: the sentence keeps the last reading and one rule says the feed is down. */
 .plate.err{border-top:1px solid var(--alarm-plate)}
 .plate.err .platehead{color:var(--alarm-plate)}
 /* §7.2 the ladder is an instrument: border, header row, its own scale. */
@@ -121,7 +119,6 @@ html[data-theme="dark"] .plate{border:1px solid var(--rule2);border-bottom:4px s
 .pick:last-child{border-bottom:0}
 .pick:hover{background:var(--sunk)}
 .pick[aria-pressed="true"]{background:var(--sunk)}
-/* The picker is the densest thing on the page on purpose: 14 actions at 46 px is a 640 px wall, and a wall is what made the old design read as a report. */
 .pick .pt{font-size:13px;line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick .box{width:16px;height:16px;border:1px solid var(--ctl);border-radius:var(--rad);position:relative}
 .pick[aria-pressed="true"] .box{border-color:var(--aq-text);background:var(--aq-text)}
@@ -129,7 +126,6 @@ html[data-theme="dark"] .plate{border:1px solid var(--rule2);border-bottom:4px s
 .pick .pt em{display:inline;font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-left:6px}
 .pick .pc{font-family:var(--mono);font-size:11.5px;text-align:right;color:var(--ink2)}
 .pick .pc s{display:block;text-decoration:line-through;color:var(--muted);font-size:10px}
-/* §7.5 the tally: the second and only other plate, band on the top edge, so the pair reads as one leading and one trailing. */
 .tally{background:var(--plate);color:var(--plate-ink);border-radius:var(--rad);border-top:4px solid var(--aq-lift)}
 html[data-theme="dark"] .tally{border:1px solid var(--rule2);border-top:4px solid var(--aq-lift)}
 @media(min-width:1024px){.tally{position:sticky;top:52px}}
@@ -547,14 +543,46 @@ function paintPlate(b, nowHour) {
 function verdictText(b) {
   const aqi = (b.aqi && b.aqi.aqi) || 0;
   const tr = b.next_trough || {}, pk = b.next_peak || {};
-  const when = (tr.hour === null || tr.hour === undefined) ? "now" : pad2(tr.hour) + ":00";
   const nowH = HOUR === null ? (new Date()).getHours() : HOUR;
-  const ahead = (pk.hour === null || pk.hour === undefined) ? 99 : (((pk.hour - nowH) % 24) + 24) % 24;
-  const climb = (ahead > 0 && ahead <= 3) ? " It climbs again by " + pad2(pk.hour) + ":00." : "";
-  if (aqi >= 201 && b.elevated_now) return { lead:"Keep them shut", tail:" until about " + when + ".", climb };
-  if (aqi >= 201 && when === "now") return { lead:"Open up now", tail:", while it is at its cleanest.", climb };
-  if (aqi >= 201) return { lead:"Open up at " + when, tail:".", climb };
-  return { lead:"A good day to open up", tail:".", climb };
+  const hasTrough = tr.hour !== null && tr.hour !== undefined;
+  const hasPeak = pk.hour !== null && pk.hour !== undefined;
+  const when = hasTrough ? pad2(tr.hour) + ":00" : "now";
+  // Hours ahead, so "by 00:00" at 22:00 reads as soon rather than as the past.
+  const peakAhead = hasPeak ? (((pk.hour - nowH) % 24) + 24) % 24 : 99;
+  const soon = hasPeak && peakAhead > 0 && peakAhead <= 4;
+
+  // The climb clause is NOT appended blindly. Appending it produced sentences
+  // that argued with themselves: "A good day to open up. It climbs again by
+  // 00:00", and worse, "Keep them shut until about now." A rise that arrives
+  // soon changes the ADVICE, so it changes the whole sentence.
+  if (aqi >= 201 && b.elevated_now) {
+    if (!hasTrough) return { lead: "Keep them shut. It is near today's worst." };
+    if (soon) return { lead: "Keep them shut. It is near today's worst, and the next clear hour is " + when + "." };
+    return { lead: "Keep them shut until about " + when + "." };
+  }
+  if (aqi >= 201 && !hasTrough) {
+    // Already at the cleanest point in the forward window.
+    return { lead: "Open up now, while it is at its cleanest"
+                 + (soon ? ", before it climbs again at " + pad2(pk.hour) + ":00." : ".") };
+  }
+  if (aqi >= 201) {
+    return { lead: "Open up at " + when + ", the clean window"
+                 + (soon ? ", before it climbs at " + pad2(pk.hour) + ":00." : ".") };
+  }
+  // Never "calm" here: 71.5 is 4.8x the WHO guideline and a reassuring word would
+  // be false. Compare against the guideline instead, which the payload carries.
+  const ratio = (b.who && b.who.multiple) || 0;
+  const frame = ratio >= 2 ? "Better than it has been, still " + fmt(ratio) + "× the WHO guideline"
+              : ratio >= 1 ? "Below the WHO guideline's ceiling, near it"
+              : "Under the WHO guideline";
+  if (soon) {
+    const hh = pk.hour;
+    const label = (hh >= 17 && hh <= 23) ? "The evening build-up starts around "
+                : (hh >= 4 && hh <= 10) ? "The morning inversion starts around "
+                : "It rises again around ";
+    return { lead: "Open up now, while it is at its best. " + label + pad2(hh) + ":00." };
+  }
+  return { lead: "Windows open. " + frame + "." };
 }
 
 /* The chain the engine computes: outdoor -> indoor -> stove -> a person's day.
@@ -1581,10 +1609,8 @@ async function boot(regen) {
   const hh = tickClock();
   if (HOUR === null) HOUR = hh;
   try {
-    // The endpoint declares `def brief(h: Household)`, so the household fields
-    // belong at the TOP LEVEL. Sending {household: h} made FastAPI ignore it and
-    // silently substitute the default four-person household, so a configured
-    // biomass flat was shown gas-stove numbers for everyone.
+    // Flat body: `def brief(h: Household)`. Sending {household:h} made FastAPI
+    // ignore it and substitute the default family for every user (26bbdd9).
     const d = await post("/api/brief", h);
     LAST = d;
     const b = d.brief;
@@ -1592,8 +1618,6 @@ async function boot(regen) {
     const v = verdictText(b);
     const h1 = $("#verdict"); h1.textContent = "";
     h1.appendChild(document.createTextNode(v.lead));
-    if (v.tail && v.tail !== ".") h1.appendChild(el("span", "em", v.tail + v.climb));
-    else h1.appendChild(document.createTextNode("." + (v.climb || "")));
     paintPlate(b, hh);
     $("#kicker").textContent = ((b.profile && b.profile.city) || "Delhi") + " · PM2.5 " +
       fmt(b.ambient_pm25) + " · AQI " + (b.aqi && b.aqi.aqi) + " " + ((b.aqi && b.aqi.label) || "");

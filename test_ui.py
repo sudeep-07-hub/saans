@@ -163,6 +163,25 @@ def main() -> int:
             check("dark block defines ink and paper", False, str(sorted(dv)))
     check("theme choice is persisted", bool(re.search(r"THEME_KEY|theme", html)) and "localStorage" in html)
 
+    # The verdict must never argue with itself. Two shipped forms were wrong:
+    # "A good day to open up. It climbs again by 00:00" (advice to ventilate,
+    # immediately followed by a reason not to) and "Keep them shut until about
+    # now" (a null trough hour rendered as a time). Asserting on source text is
+    # brittle — my own comment tripped an earlier version — so this checks that
+    # the blind-append VARIABLE is gone and that no verdict path emits a time in
+    # front of a null-hour trough.
+    check("the verdict no longer appends a blind climb clause",
+          not re.search(r"\bconst climb\s*=", html),
+          "a `const climb =` clause is still appended to every verdict form")
+    check("the verdict branches on whether a trough hour exists",
+          "hasTrough" in html, "a null trough hour can render as 'until about now'")
+    # The four verdict forms that must exist. "calm" was removed on purpose: at
+    # 4.8x the WHO guideline a reassuring word is false, so the calm-day branch
+    # now frames against the guideline instead.
+    for phrase in ("Keep them shut", "Open up at", "it is at its best",
+                   "Windows open. ", "the WHO guideline"):
+        check(f"a verdict form exists: {phrase!r}", phrase in html)
+
     # --- the API the page depends on still answers -------------------------
     try:
         raw = urllib.request.urlopen(
