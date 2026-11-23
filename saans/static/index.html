@@ -282,6 +282,11 @@ border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
 .streaming{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+/* the model's own words while it writes: monospace, quiet, clipped to its tail */
+.rawtext{font-family:var(--mono);font-size:10.5px;line-height:1.5;color:var(--muted);
+background:var(--sunk);border:1px solid var(--rule);border-radius:var(--rad);
+padding:7px 9px;margin-top:6px;max-height:92px;overflow:hidden;white-space:pre-wrap;
+word-break:break-word;opacity:.85}
 .colophon{margin-top:24px;padding-top:10px;border-top:1px solid var(--rule);font-family:var(--mono);
 font-size:9.5px;color:var(--muted);display:flex;gap:8px 16px;flex-wrap:wrap;line-height:1.5}
 .colophon b{color:var(--ink2);font-weight:500}
@@ -719,15 +724,24 @@ function markDone(k, on) { const m = doneMap(); if (on) m[k] = 1; else delete m[
 async function loadPlan() {
   const box = $("#plan");
   box.textContent = "";
+  // One status line, updated in place. The server streams the model's text as it
+  // writes; those token events used to be parsed and discarded, so a 30-90 second
+  // generation showed a motionless spinner. Showing the tail of the stream is the
+  // only honest progress this app has, and it is the moment the GenAI stops
+  // looking like a black box.
   const st = el("span", "streaming");
-  st.appendChild(el("span", "pulse")); st.appendChild(document.createTextNode("Reading your numbers"));
+  const dot = el("span", "pulse");
+  const stText = document.createTextNode(" Reading your numbers");
+  st.appendChild(dot); st.appendChild(stText);
   box.appendChild(st);
+  const raw = el("pre", "rawtext");
+  box.appendChild(raw);
   try {
     const r = await fetch("/api/plan", { method:"POST", headers:{ "Content-Type":"application/json" },
       body:JSON.stringify({ household: household() }) });
     if (!r.ok || !r.body) throw new Error("plan " + r.status);
     const reader = r.body.getReader(); const dec = new TextDecoder();
-    let buf = "", finalObj = null;
+    let buf = "", finalObj = null, factsMeta = null, chars = 0;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -735,14 +749,28 @@ async function loadPlan() {
       const lines = buf.split("\n"); buf = lines.pop();
       for (const line of lines) {
         if (!line.startsWith("data:")) continue;
-        const raw = line.slice(5).trim();
-        if (!raw) continue;
-        let obj; try { obj = JSON.parse(raw); } catch (e) { continue; }
-        if (obj && obj.today) finalObj = obj;
+        const payload = line.slice(5).trim();
+        if (!payload) continue;
+        let obj; try { obj = JSON.parse(payload); } catch (e) { continue; }
+        if (obj && typeof obj.t === "string") {
+          // streamed model text: keep only the tail so the block stays small
+          chars += obj.t.length;
+          raw.textContent = (raw.textContent + obj.t).slice(-420);
+          stText.textContent = " Wording the plan · " + chars + " characters in";
+        } else if (obj && obj.facts) {
+          factsMeta = obj;
+          // The server announces the fact sheet before the model starts. That is
+          // the 0-second signal: the numbers are ready, the words are next.
+          stText.textContent = " Numbers ready · " + obj.actions + " actions decided · wording now";
+        } else if (obj && obj.error) {
+          factsMeta = { error: obj.error };
+        } else if (obj && obj.today) {
+          finalObj = obj;
+        }
       }
     }
     box.textContent = "";
-    if (finalObj) renderPlan(finalObj);
+    if (finalObj) renderPlan(finalObj, factsMeta);
     else box.appendChild(el("p", "limit", "The plan could not be built just now."));
   } catch (err) {
     box.textContent = "";
@@ -750,7 +778,7 @@ async function loadPlan() {
   }
 }
 
-function renderPlan(p) {
+function renderPlan(p, factsMeta) {
   const box = $("#plan"); box.textContent = "";
   $("#planby").textContent = p.generated_by === "deterministic" ? "built-in wording" : "worded on this device";
   const wrap = el("div", "planbox");

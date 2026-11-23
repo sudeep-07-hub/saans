@@ -238,14 +238,19 @@ check("fact sheet hour pair comes from the forward window",
 for bad in ("The child stays home all day.",
             "She is kept home from school.",
             "He misses school when the air is like this.",
-            "No school today for the little one."):
+            "No school today for the little one.",
+            "Your 7-year-old child stays home.",
+            "She stays at home.",
+            "The child stays indoors today."):
     inv_text = {"opening": bad + " The air outside is {{OUT}}.",
                 "for_children": "", "what_this_does_not_fix": ""}
     inv_out, _ = narrator.enforce(dict(inv_text), day, tmap, brief, ppl)
     low = inv_out["opening"].lower()
-    check(f"invented school policy deleted: {bad[:30]!r}",
-          not any(k in low for k in ("home all day", "misses school", "no school today", "kept home")),
-          inv_out["opening"].strip()[:60])
+    leaked = [k for k in ("stays home", "kept home", "misses school",
+                          "no school today", "stays at home", "stays indoors")
+              if k in low]
+    check(f"invented school policy deleted: {bad[:30]!r}", not leaked,
+          f"leaked {leaked}" if leaked else inv_out["opening"].strip()[:60])
 
 # --- 4. children paragraph is household-dependent -------------------------
 no_kids = narrator.assemble(

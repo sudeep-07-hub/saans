@@ -509,12 +509,15 @@ _BANNED = re.compile(
     # School and staying-home claims. The engine owns the school verdict, and a
     # child being kept home is a household decision nobody reported: a model
     # wrote "the child stays home all day" on a day the screen beside it printed
-    # "Normal outdoor play is fine".
-    r"|\bstays?\s+(?:at\s+)?home\s+(?:all\s+day|today|from\s+school)\b"
+    # "Normal outdoor play is fine". The bare form matters too — "Your 7-year-old
+    # child stays home." shipped past an earlier version of this pattern because
+    # it required "all day" or "from school" after "home".
+    r"|\bstays?\s+(?:at\s+)?home\b"
     r"|\bkept\s+(?:at\s+)?home\b"
+    r"|\b(?:stays?|kept)\s+(?:at\s+)?indoors?\b"
     r"|\bmiss(?:es|ing)?\s+school\b"
     r"|\bmiss(?:es|ing)?\s+(?:a\s+day\s+of\s+)?(?:class|classes)\b"
-    r"|\bno\s+school\s+today\b",
+    r"|\bno\s+school\s+(?:today|tomorrow)\b",
     re.I,
 )
 
