@@ -270,6 +270,33 @@ padding:8px 9px;min-height:48px;font-size:12px;font-weight:600}
 #saveNote{font-family:var(--mono);font-size:10px;color:var(--muted)}
 
 .planbox{border:1px solid var(--rule);background:var(--panel);border-radius:var(--rad);padding:11px}
+/* The three prose slots exist from the first paint so nothing moves when the
+   words land. 2 lines for the opening, 2 for the children, 1 for the limit —
+   the height the deterministic fallback actually occupies. */
+.slot{min-height:0;margin:0}
+[data-slot="opening"]{min-height:3.1em}
+[data-slot="children"]{min-height:3.1em}
+[data-slot="limit"]{min-height:1.5em}
+.slot.pending::before{content:"";display:block;height:2px;background:var(--rule);
+  margin:9px 0 0;max-width:64ch}
+/* Three determinate steps, no spinner, no percentage. */
+.progress{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+.progress .pdot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto;
+  animation:pulse 1.1s ease-in-out infinite}
+.progress .segs{display:flex;gap:4px}
+.progress .seg{width:24px;height:2px;background:var(--rule);position:relative;overflow:hidden}
+.progress .seg.past{background:var(--ink)}
+.progress .seg.now{background:var(--sunk)}
+.progress .seg.now::after{content:"";position:absolute;top:0;left:0;width:8px;height:2px;
+  background:var(--accent);animation:sweep 1.8s linear infinite}
+@keyframes sweep{from{transform:translateX(-8px)}to{transform:translateX(24px)}}
+.progress .pcount{margin-left:auto;letter-spacing:0;text-transform:none}
+.again{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;
+  border:1px solid var(--rule2);color:var(--ink2);border-radius:var(--rad);
+  padding:6px 9px;min-height:32px;margin-top:8px}
+.again:hover{border-color:var(--ink);color:var(--ink)}
 .planfigs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin:9px 0;
 border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
 @media(min-width:540px){.planfigs{grid-template-columns:repeat(4,minmax(0,1fr))}}
@@ -374,7 +401,8 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
 
     <section class="sec" aria-label="Today's plan">
       <div class="sechead"><h2>Today's plan</h2><span class="aside" id="planby"></span></div>
-      <div id="plan" aria-live="polite"></div>
+      <div id="plan"></div>
+      <p class="sr" id="planMsg" role="status" aria-live="polite"></p>
     </section>
 
     <section class="sec" aria-label="Who carries it">
@@ -753,112 +781,73 @@ function doneMap() {
 function isDone(k) { return !!doneMap()[k]; }
 function markDone(k, on) { const m = doneMap(); if (on) m[k] = 1; else delete m[k]; store.set(DONE_KEY, m); }
 
-/* Refresh the plan's numbers without re-wording them.
+/* ---------------------------------------------------------------------------
+   THE PLAN ARRIVES TWICE: actions first, words second.
 
-   The five actions, their times and their effects come from narrator.skeleton(),
-   which is pure Python over brief+ranked and takes milliseconds. Only the three
-   paragraphs need the 4B model, which takes 30-90 seconds. So editing a child's
-   age must not re-generate prose: this fetches the real skeleton from the server
-   (same function the model path uses, so the two can never drift), keeps the
-   words already on screen, and labels them as belonging to the previous
-   household rather than leaving them silently stale. */
-async function refreshPlanNumbers() {
-  const box = $("#plan");
-  if (!box || !LAST) return;
-  const prev = box.querySelector(".planbox");
-  if (!prev) { await loadPlan(); return; }
-  const opening = (prev.querySelector(".prose.serif") || {}).textContent || "";
-  const kids = (prev.querySelectorAll(".prose")[1] || {}).textContent || "";
-  const limit = (prev.querySelector(".limit") || {}).textContent || "";
-  const wasModel = prev.dataset.generated === "model";
-  try {
-    const skel = await post("/api/skeleton", household());
-    if (!skel || !skel.today) { await loadPlan(); return; }
-    renderPlan(Object.assign({}, skel, {
-      opening: opening, for_children: kids, what_this_does_not_fix: limit,
-      generated_by: wasModel ? "model" : "deterministic"
-    }), null);
-    if (wasModel && opening) {
-      const note = el("p", "limit", "The wording above describes the previous household. The numbers have been recalculated.");
-      box.appendChild(note);
-    }
-  } catch (err) { await loadPlan(); }
+   narrator.skeleton() is pure Python over the brief, so the actions, their
+   times and their effects exist ~20 ms after the household is known. The three
+   paragraphs need a 4B model and take 30-90 s. The panel used to show only a
+   spinner and a token tail for that whole wait, hiding content the client could
+   already have. Now it renders the action rail on first paint, reserves the
+   three prose slots at their final height, and then streams words into them.
+   The same three slots are filled by the deterministic fallback when the model
+   is absent or fails, so the DOM is identical either way.
+--------------------------------------------------------------------------- */
+let SKEL = null;
+
+/* The five figures beside the opening paragraph. The server sends them with the
+   finished plan; before it arrives they are read from the same brief and
+   skeleton fields the server reads, so the row is the right size and no space
+   is reserved for something that may never come. No arithmetic happens here. */
+function planFigures(p) {
+  if (p.figures && p.figures.length) return p.figures;
+  const b = LAST && LAST.brief;
+  if (!b) return [];
+  const mult = (b.who && b.who.multiple !== undefined) ? b.who.multiple : null;
+  const hour = (v, h) => (v === undefined || v === null) ? "—" : fmt(v) + " µg/m³";
+  return [
+    { label:"outdoor now", value: fmt(b.ambient_pm25), unit:"µg/m³" },
+    { label:"times WHO 24h", value: mult === null ? "—" : mult, unit:"×" },
+    { label:"indoors", value: fmt(b.indoor_pm25), unit:"µg/m³" },
+    { label:"dirtiest hour", value: p.peak_hour || "—", unit: hour(p.peak_val) },
+    { label:"cleanest hour", value: p.clean_hour || "—", unit: hour(p.clean_val) }
+  ];
 }
 
-async function loadPlan() {
-  const box = $("#plan");
-  box.textContent = "";
-  // One status line, updated in place. The server streams the model's text as it
-  // writes; those token events used to be parsed and discarded, so a 30-90 second
-  // generation showed a motionless spinner. Showing the tail of the stream is the
-  // only honest progress this app has, and it is the moment the GenAI stops
-  // looking like a black box.
-  const st = el("span", "streaming");
-  const dot = el("span", "pulse");
-  const stText = document.createTextNode(" Reading your numbers");
-  st.appendChild(dot); st.appendChild(stText);
-  box.appendChild(st);
-  const raw = el("pre", "rawtext");
-  box.appendChild(raw);
-  try {
-    const r = await fetch("/api/plan", { method:"POST", headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify(household()) });
-    if (!r.ok || !r.body) throw new Error("plan " + r.status);
-    const reader = r.body.getReader(); const dec = new TextDecoder();
-    let buf = "", finalObj = null, factsMeta = null, chars = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream:true });
-      const lines = buf.split("\n"); buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith("data:")) continue;
-        const payload = line.slice(5).trim();
-        if (!payload) continue;
-        let obj; try { obj = JSON.parse(payload); } catch (e) { continue; }
-        if (obj && typeof obj.t === "string") {
-          // streamed model text: keep only the tail so the block stays small
-          chars += obj.t.length;
-          raw.textContent = (raw.textContent + obj.t).slice(-420);
-          stText.textContent = " Wording the plan · " + chars + " characters in";
-        } else if (obj && obj.facts) {
-          factsMeta = obj;
-          // The server announces the fact sheet before the model starts. That is
-          // the 0-second signal: the numbers are ready, the words are next.
-          stText.textContent = " Numbers ready · " + obj.actions + " actions decided · wording now";
-        } else if (obj && obj.error) {
-          factsMeta = { error: obj.error };
-        } else if (obj && obj.today) {
-          finalObj = obj;
-        }
-      }
-    }
-    box.textContent = "";
-    if (finalObj) renderPlan(finalObj, factsMeta);
-    else box.appendChild(el("p", "limit", "The plan could not be built just now."));
-  } catch (err) {
-    box.textContent = "";
-    box.appendChild(el("p", "limit", "Could not reach the plan. The numbers above are unaffected."));
-  }
+/* A prose slot exists from the first paint whether or not it has words yet. Its
+   min-height is in the stylesheet, so the rail never moves when text lands. */
+function planSlot(name, cls) {
+  const s = el("p", cls + " slot");
+  s.dataset.slot = name;
+  return s;
 }
 
 function renderPlan(p, factsMeta) {
   const box = $("#plan"); box.textContent = "";
-  $("#planby").textContent = p.generated_by === "deterministic" ? "built-in wording" : "worded on this device";
+  const gen = p.generated_by || "skeleton";
+  $("#planby").textContent = gen === "skeleton" ? "from your numbers"
+    : gen === "deterministic" ? "built-in wording" : "worded on this device";
   const wrap = el("div", "planbox");
-  if (p.opening) wrap.appendChild(el("p", "prose serif", p.opening));
-  if (p.figures && p.figures.length) {
-    const fg = el("div", "planfigs");
-    p.figures.forEach(f => {
-      const c = el("div", "fc");
-      c.appendChild(el("div", "l", f.label));
-      const v = el("div", "v", f.value);
-      if (f.unit) v.appendChild(el("small", null, " " + f.unit));
-      c.appendChild(v); fg.appendChild(c);
-    });
-    wrap.appendChild(fg);
-  }
-  if (p.for_children) wrap.appendChild(el("p", "prose", p.for_children));
+  wrap.dataset.generated = gen;
+
+  const opening = planSlot("opening", "prose serif");
+  if (p.opening) opening.textContent = p.opening;
+  wrap.appendChild(opening);
+
+  const figs = el("div", "planfigs");
+  planFigures(p).forEach(f => {
+    const c = el("div", "fc");
+    c.appendChild(el("div", "l", f.label));
+    const v = el("div", "v", f.value);
+    if (f.unit) v.appendChild(el("small", null, " " + f.unit));
+    c.appendChild(v); figs.appendChild(c);
+  });
+  if (figs.childNodes.length) wrap.appendChild(figs);
+
+  const kids = planSlot("children", "prose");
+  if (p.for_children) kids.textContent = p.for_children;
+  wrap.appendChild(kids);
+
   const rail = el("div", "rail");
   const one = p.the_one_thing && p.the_one_thing.action;
   (p.today || []).forEach(t => {
@@ -897,16 +886,268 @@ function renderPlan(p, factsMeta) {
     if (p.the_one_thing.why) row.appendChild(el("p", "rwhy", p.the_one_thing.why));
     rail.appendChild(row);
   }
-  wrap.appendChild(rail);
-  if (p.what_this_does_not_fix) wrap.appendChild(el("p", "limit", p.what_this_does_not_fix));
+  if (rail.childNodes.length) wrap.appendChild(rail);
+
+  const limit = planSlot("limit", "limit");
+  if (p.what_this_does_not_fix) limit.textContent = p.what_this_does_not_fix;
+  wrap.appendChild(limit);
+
   const foot = el("div", "planfoot");
-  foot.appendChild(el("span", null, p.generated_by === "deterministic"
-    ? "Built-in wording. Every action and figure is computed either way."
-    : "Wording by the model on this device; every action and figure decided by the calculation."));
+  foot.appendChild(el("span", null, gen === "skeleton"
+    ? "Every action and figure decided by the calculation. Only the wording is still being written."
+    : gen === "deterministic"
+      ? "Built-in wording. Every action and figure is computed either way."
+      : "Wording by the model on this device; every action and figure decided by the calculation."));
   if (p.notes && p.notes.length)
     foot.appendChild(el("span", null, p.notes.length + " sentence(s) removed for carrying a figure the model was not given."));
   wrap.appendChild(foot);
   box.appendChild(wrap);
+}
+
+/* Paint the actions from /api/skeleton. Measured at 19-60 ms against 13-90 s
+   for the prose, which is the whole reason this function exists. */
+async function paintSkeleton() {
+  try {
+    const skel = await post("/api/skeleton", household());
+    if (!skel || !skel.today) return false;
+    SKEL = skel;
+    renderPlan(Object.assign({}, skel, { generated_by:"skeleton" }), null);
+    return true;
+  } catch (e) { return false; }
+}
+
+/* Three steps, driven by real events and never by a timer: the segments say
+   which stage the wording is in, and the character count is the only honest
+   measure of progress a 30-90 second generation offers. */
+function planProgress(wrap, slotEl) {
+  const box = el("div", "progress");
+  const dot = el("i", "pdot");
+  const label = el("span", "plabel", "Reading your numbers");
+  const segs = el("span", "segs");
+  const seg = [0, 1, 2].map(() => { const s = el("i", "seg"); segs.appendChild(s); return s; });
+  const count = el("span", "pcount");
+  box.appendChild(dot); box.appendChild(label); box.appendChild(segs); box.appendChild(count);
+  wrap.insertBefore(box, slotEl);
+  let phase = -1;
+  return {
+    phase(n, text) {
+      if (n === phase) { if (text) label.textContent = text; return; }
+      phase = n; label.textContent = text;
+      seg.forEach((s, i) => {
+        s.className = "seg" + (i < n ? " past" : i === n ? " now" : "");
+      });
+    },
+    count(chars) { count.textContent = chars ? chars + " characters in" : ""; },
+    note(text) { count.textContent = text; },
+    remove() { if (box.parentNode) box.parentNode.removeChild(box); }
+  };
+}
+
+/* Pull a complete JSON string value out of the partially received model output.
+   only complete, parseable strings are accepted, so the slot never shows half
+   an escape sequence or a fragment of the next key. */
+function partialJSON(buf, key) {
+  const m = new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"').exec(buf);
+  if (!m) return "";
+  try { return JSON.parse('"' + m[1] + '"') || ""; } catch (e) { return ""; }
+}
+
+async function streamProse() {
+  const box = $("#plan");
+  const wrap = box && box.querySelector(".planbox");
+  if (!wrap) { await paintSkeleton(); return streamProse(); }
+  ["opening", "children", "limit"].forEach(n => {
+    const s = wrap.querySelector('[data-slot="' + n + '"]');
+    if (s && !s.textContent) s.classList.add("pending");
+  });
+  const prog = planProgress(wrap, wrap.querySelector('[data-slot="opening"]'));
+  const raw = el("pre", "rawtext");
+  raw.hidden = true;
+  const foot = wrap.querySelector(".planfoot");
+  wrap.insertBefore(raw, foot);
+  const slots = {
+    opening: wrap.querySelector('[data-slot="opening"]'),
+    children: wrap.querySelector('[data-slot="children"]'),
+    limit: wrap.querySelector('[data-slot="limit"]')
+  };
+  let chars = 0, buf = "", gotToken = false, finalObj = null, factsMeta = null;
+  const slow = setTimeout(() => {
+    prog.note("still working · the actions above are final");
+  }, 15000);
+  try {
+    const r = await fetch("/api/plan", { method:"POST", headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify(household()) });
+    if (!r.ok || !r.body) throw new Error("plan " + r.status);
+    const reader = r.body.getReader(); const dec = new TextDecoder();
+    let frame = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      frame += dec.decode(value, { stream:true });
+      const lines = frame.split("\n"); frame = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload) continue;
+        let obj; try { obj = JSON.parse(payload); } catch (e) { continue; }
+        if (obj && typeof obj.t === "string") {
+          chars += obj.t.length;
+          if (!gotToken) { gotToken = true; prog.phase(1, "Writing it"); }
+          buf += obj.t;
+          prog.count(chars);
+          // A complete value can land in the slot while the model is still
+          // writing the next one; the prose is then readable before the stream
+          // ends instead of after it.
+          const live = partialJSON(buf, "opening");
+          if (live && slots.opening.textContent !== live) {
+            slots.opening.textContent = live; slots.opening.classList.remove("pending");
+          }
+          const kidsLive = partialJSON(buf, "for_children");
+          if (kidsLive && slots.children.textContent !== kidsLive) {
+            slots.children.textContent = kidsLive; slots.children.classList.remove("pending");
+          }
+          raw.hidden = false;
+          raw.textContent = ("…" + buf).slice(-260);
+        } else if (obj && obj.facts) {
+          factsMeta = obj;
+          prog.phase(1, "Choosing what to say");
+        } else if (obj && obj.error) {
+          factsMeta = { error: obj.error };
+        } else if (obj && obj.today) {
+          finalObj = obj;
+        }
+      }
+    }
+    clearTimeout(slow);
+    prog.phase(2, "Checking every figure");
+    if (finalObj) {
+      prog.remove(); raw.hidden = true;
+      fillPlanSlots(wrap, finalObj);
+      $("#planMsg").textContent = "Plan wording ready. The actions have not changed.";
+      const gen = finalObj.generated_by === "deterministic" ? "deterministic" : "model";
+      wrap.dataset.generated = gen;
+      $("#planby").textContent = gen === "deterministic" ? "built-in wording" : "worded on this device";
+      if (finalObj.figures && finalObj.figures.length) {
+        const old = wrap.querySelector(".planfigs");
+        if (old) wrap.removeChild(old);
+        const figs = el("div", "planfigs");
+        finalObj.figures.forEach(f => {
+          const c = el("div", "fc");
+          c.appendChild(el("div", "l", f.label));
+          const v = el("div", "v", f.value);
+          if (f.unit) v.appendChild(el("small", null, " " + f.unit));
+          c.appendChild(v); figs.appendChild(c);
+        });
+        wrap.insertBefore(figs, wrap.querySelector('[data-slot="children"]'));
+      }
+      const f = wrap.querySelector(".planfoot");
+      if (f) {
+        f.textContent = "";
+        f.appendChild(el("span", null, gen === "deterministic"
+          ? "Built-in wording. Every action and figure is computed either way."
+          : "Wording by the model on this device; every action and figure decided by the calculation."));
+        if (finalObj.notes && finalObj.notes.length)
+          f.appendChild(el("span", null, finalObj.notes.length +
+            " sentence(s) removed for carrying a figure the model was not given."));
+      }
+    } else {
+      prog.remove(); raw.hidden = true;
+      wordingFailed(wrap, factsMeta && factsMeta.error ? "error" : "timeout");
+    }
+  } catch (err) {
+    clearTimeout(slow);
+    prog.remove(); raw.hidden = true;
+    wordingFailed(wrap, "error");
+  }
+}
+
+/* Fill the three slots that already exist. Never re-renders the rail: the
+   actions came from the same skeleton the server used, so replacing them would
+   only cost a flicker. */
+function fillPlanSlots(wrap, p) {
+  const set = (name, text) => {
+    const s = wrap.querySelector('[data-slot="' + name + '"]');
+    if (!s) return;
+    s.classList.remove("pending");
+    s.textContent = text || "";
+    if (!text) s.hidden = true;
+  };
+  set("opening", p.opening);
+  set("children", p.for_children);
+  set("limit", p.what_this_does_not_fix);
+}
+
+/* A failed paragraph is not an error state for the product. The numbers above
+   are untouched and still correct; only the words are missing. One retry, then
+   the retry is removed so this cannot become a loop. */
+let wordingTries = 0;
+function wordingFailed(wrap, why) {
+  const box = $("#plan");
+  $("#planby").textContent = "from your numbers";
+  const s = wrap.querySelector('[data-slot="opening"]');
+  if (s) {
+    s.classList.remove("pending");
+    s.textContent = (why === "timeout"
+      ? "The wording took too long. "
+      : "The wording did not arrive. ") + "Your numbers are unchanged.";
+  }
+  $("#planMsg").textContent = "The wording did not arrive. The actions and figures are unchanged.";
+  const old = wrap.querySelector(".again");
+  if (old) wrap.removeChild(old);
+  if (wordingTries >= 1) return;
+  const again = el("button", "again", "Try the wording again");
+  again.type = "button";
+  again.addEventListener("click", () => {
+    wordingTries += 1;
+    again.disabled = true;
+    box.textContent = "";
+    streamProse();
+  });
+  wrap.insertBefore(again, wrap.querySelector(".planfoot"));
+}
+
+async function loadPlan() {
+  const painted = await paintSkeleton();
+  if (!painted && !($("#plan").querySelector(".planbox"))) {
+    $("#plan").appendChild(el("p", "limit",
+      "The plan could not be built just now. The numbers above are unaffected."));
+    return;
+  }
+  await streamProse();
+}
+
+/* Refresh the plan's numbers without re-wording them.
+
+   Editing a child's age changes every dose, so the rail must be rebuilt — but
+   the words already on screen were written for the previous household, and
+   re-generating them costs 30-90 seconds. This fetches the real skeleton from
+   the server (the same function the model path uses, so the two cannot drift),
+   keeps the existing prose, and says plainly that the words belong to the
+   previous household. */
+async function refreshPlanNumbers() {
+  const box = $("#plan");
+  if (!box || !LAST) return;
+  const prev = box.querySelector(".planbox");
+  if (!prev) { await loadPlan(); return; }
+  const grab = n => {
+    const s = prev.querySelector('[data-slot="' + n + '"]');
+    return s && !s.classList.contains("pending") ? s.textContent : "";
+  };
+  const opening = grab("opening"), kids = grab("children"), limit = grab("limit");
+  const wasModel = prev.dataset.generated === "model";
+  try {
+    const skel = await post("/api/skeleton", household());
+    if (!skel || !skel.today) { await loadPlan(); return; }
+    SKEL = skel;
+    renderPlan(Object.assign({}, skel, {
+      opening: opening, for_children: kids, what_this_does_not_fix: limit,
+      generated_by: wasModel ? "model" : "deterministic"
+    }), null);
+    if (wasModel && opening) {
+      const note = el("p", "limit", "The wording above describes the previous household. The numbers have been recalculated.");
+      box.appendChild(note);
+    }
+  } catch (err) { await loadPlan(); }
 }
 
 function renderPeople(b) {
