@@ -21,9 +21,9 @@ Without it the app still runs and produces the same plan in plainer prose.
 
 ```bash
 python test_model.py      # 86 checks — exposure arithmetic and the clock
-python test_narrator.py   # 70 checks — the language boundary
-python test_security.py   # 48 checks — headers, validation, injection
-python test_ui.py         # 41 checks — the served file against the design
+python test_narrator.py   # 73 checks — the language boundary
+python test_security.py   # 51 checks — headers, validation, injection
+python test_ui.py         # 43 checks — the served file against the design
 ```
 
 ---
@@ -217,7 +217,7 @@ that states them.
 
 ## 5. Quality, security, testing, accessibility
 
-### Testing — 245 automated checks
+### Testing — 253 automated checks
 
 Every number below is a real run, not an estimate. The counts moved as the
 defects they described were found and closed.
@@ -228,21 +228,21 @@ defects they described were found and closed.
   field factors, geography boundary tests, and the **clock**: that the forward
   window starts at the observed hour rather than midnight, and that a 48-hour
   series is not averaged into a typical day.
-- `test_narrator.py` (70): adversarial input to the language boundary — raw
+- `test_narrator.py` (73): adversarial input to the language boundary — raw
   digits, invented tokens, reassurance, behaviour claims, invented school policy,
   domain names with digits — asserting none survives and that the legitimate
   shapes do.
-- `test_security.py` (48): headers actually received, docs disabled, path
+- `test_security.py` (51): headers actually received, docs disabled, path
   traversal, 14 validation cases, unknown-intervention 404, SSE termination, and
   that the CSP carries `script-src-attr 'none'` so an injected inline handler
   cannot run.
-- `test_ui.py` (41): the **served** file against the design — size limit, no
+- `test_ui.py` (43): the **served** file against the design — size limit, no
   external origins, no interpolated `innerHTML`, contrast of the light and dark
   token pairs, a text alternative for the chart, labelled inputs, and that the
   forward-window fields are still in the brief.
 
 There is one honest caveat. Passing tests did not prove the product correct: 171
-checks passed while a fact sheet was shipping `None` doses, and 245 passed while
+checks passed while a fact sheet was shipping `None` doses, and 253 passed while
 the plan panel printed a "cleanest hour" that had already passed. Both were found
 by looking at the running app, not by asserting against it. The tests are the
 floor, not the evidence.
@@ -275,7 +275,7 @@ floor, not the evidence.
 - `aria-live` on the headline and the options so a change is announced;
   `role="alert"` on errors; `prefers-reduced-motion`, `prefers-contrast: more` and
   `prefers-reduced-transparency` all honoured.
-- Responsive to 390px with no horizontal overflow; print stylesheet included.
+- Responsive from 320px to 1440px with no horizontal overflow.
 
 ### Code quality
 
@@ -312,12 +312,13 @@ saans/
   sources.py     source apportionment profiles
   data.py        Open-Meteo / CAMS, geocoding, labelled offline fallback
   narrator.py    fact sheet, token boundary, enforcement, fallback prose
-  server.py      FastAPI: /api/brief, /api/simulate, /api/plan, /api/factors
+  server.py      FastAPI: /api/brief, /api/simulate, /api/combine, /api/plan,
+                 /api/factors, /api/sources
   static/
     index.html   the interface — one file, no build step, no framework
-test_model.py    71 checks: arithmetic against hand-worked values
-test_narrator.py 53 checks: adversarial tests of the generative boundary
-test_security.py 47 checks: headers, validation, traversal, injection
+test_model.py    86 checks: arithmetic, the clock, and the forward window
+test_narrator.py 73 checks: adversarial tests of the generative boundary
+test_security.py 51 checks: headers, validation, traversal, injection
 run.py           launcher
 ```
 

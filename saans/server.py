@@ -147,14 +147,24 @@ class Household(BaseModel):
 
 
 class SimRequest(BaseModel):
+    """Kept in the wrapped shape for API compatibility with /api/simulate."""
     household: Household
     key: str = Field(..., max_length=40)
 
 
-class CombineRequest(BaseModel):
-    household: Household
-    # Bounded: each key is a full day re-evaluation, so an unbounded list is a
-    # cheap denial of service. 14 is the size of the catalogue.
+class CombineRequest(Household):
+    """
+    Several interventions at once.
+
+    Inherits the household fields directly, so the payload is FLAT and identical
+    to /api/brief, /api/skeleton and /api/plan. They used to be nested under
+    `household` here while the other three took them at the top level, so a client
+    sending one convention silently got the default household from the other set —
+    which is how a configured biomass flat was shown gas-stove numbers.
+
+    Also bounded: each key re-evaluates a whole day per person per scenario, so an
+    unbounded list is a cheap denial of service. 14 is the catalogue size.
+    """
     keys: list[str] = Field(default_factory=list, max_length=14)
 
 
@@ -308,14 +318,14 @@ def combine(req: CombineRequest):
     per-intervention numbers client-side; the whole day is re-evaluated with
     every patch applied.
     """
-    home, habits, tr, people = to_models(req.household)
-    loc = req.household.location
+    home, habits, tr, people = to_models(req)
+    loc = req.location
     amb = data.fetch_ambient(loc.lat, loc.lon, loc.label, loc.tz)
     unknown = [k for k in req.keys if k not in advisor.CATALOGUE]
     if unknown:
         # Same status as /api/simulate, so a client handles both the same way.
         raise HTTPException(status_code=404, detail=f"unknown intervention: {', '.join(unknown)}")
-    return advisor.combine(req.keys, home, habits, tr, people, amb, req.household.office)
+    return advisor.combine(req.keys, home, habits, tr, people, amb, req.office)
 
 
 # --- generation -------------------------------------------------------------
@@ -344,6 +354,37 @@ def allowed_numbers(payload: dict) -> set[str]:
 def _schedule_lines(segments: list[dict]) -> list[dict]:
     """The household's own day, formatted for the fact sheet."""
     return narrator.schedule_lines(segments)
+
+
+@app.post("/api/skeleton")
+def skeleton_endpoint(h: Household):
+    """
+    The plan's actions, times and effects — without the model's prose.
+
+    /api/plan takes 30-90 seconds because a 4B model writes three paragraphs.
+    The five actions and their effects are decided by `narrator.skeleton()`, pure
+    Python over the same brief, and take milliseconds. The UI uses this to keep
+    the numbers honest when a household edits itself, instead of re-waiting a
+    minute and a half for wording that is not load-bearing.
+
+    It calls the same function the generation path calls, so the two cannot drift.
+    """
+    payload = build(h)
+    brief_, ranked = payload["brief"], payload["ranked"]
+    schedule = narrator.schedule_lines(payload["segments"])
+    day = narrator.skeleton(brief_, ranked, payload["people"], schedule)
+    return {
+        "ok": True,
+        "today": day["items"],
+        "peak_hour": day["peak_hour"],
+        "peak_val": day.get("peak_val"),
+        "clean_hour": day["clean_hour"],
+        "clean_val": day.get("clean_val"),
+        "the_one_thing": {
+            "action": (day["top"] or {}).get("title", ""),
+            "why": (day["top"] or {}).get("why", ""),
+        } if day.get("top") else None,
+    }
 
 
 @app.post("/api/plan")

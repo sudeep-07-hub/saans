@@ -57,15 +57,15 @@ measured from the top of the viewport with the page at scroll 0.
 | 2 | Kicker — `DELHI · PM2.5 · AQI 322` | 18 | 11/14, +0.08em, uppercase | 70 |
 | 3 | **Verdict** — `h1`, max 2 lines, ≤ 96 chars | 62 | 25/31, −0.01em | 138 |
 | 4 | **Do-now strip** — one imperative, one hour, one effect | 52 | 15/20 + 12/16 | 202 |
-| 5 | **Exposure ladder** — 4 rungs, one line each | 152 | 12.5/16 labels, 19/16 tabular values | 366 |
-| 6 | **24-hour surface** — header 22 + plot 150 + axis 16 + readout 44 | 240 | 12.5/16 header, 14/18 readout | 618 |
-| 7 | Bench header `What could you change?` + subline | 40 | 17/22 + 12.5/16 | 666 |
-| 8 | Bench header + the first 34px of pick row 1, cut by the fold | 74 visible | 17/22 + 15/20 | 740 |
+| 5 | **Exposure ladder** — 4 rungs, one line each | 144 | 12.5/16 labels, 19/16 tabular values | 358 |
+| 6 | **24-hour surface** — header 22 + plot 140 + axis 16 + readout 42 | 224 | 12.5/16 header, 14/18 readout | 594 |
+| 7 | Bench header `What could you change?` + subline | 40 | 17/22 + 12.5/16 | 642 |
+| 8 | Gap + **one complete pick row** — the invitation to act | 98 | 15/20 | 740 |
 
-**740px exactly.** Everything in 1–7 is fully visible on a real Android. Item 8 is the
-affordance that says "this page does something", cut mid-row on purpose: a partially
-visible tappable card is a stronger invitation than a "scroll for more" chevron, and it
-costs no vertical space.
+**740px exactly.** Items 1–8 are fully visible on a real Android; the fold lands in the
+gutter between pick row 1 and pick row 2. One whole interactive row above the fold is the
+minimum evidence that this page does something, and it is a stronger invitation than a
+"scroll for more" chevron at a third of the height.
 
 ### 1.3 Why each survivor is on the fold, by the decision it enables
 
@@ -166,11 +166,13 @@ wrong here for four specific reasons:
 | Returning from a sheet | Focus returns to the element that opened it. If that element no longer exists (the household was edited and the page re-rendered), focus goes to the region `h2` it belonged to. |
 | Reduced motion | `behavior:'auto'` everywhere; no cross-fade on the dialog — `showModal()` only, with `@media (prefers-reduced-motion: no-preference)` adding a 120ms opacity fade. |
 
-**Anchor rule:** the page contains **zero** in-page `<a href="#...">` links. Every jump is
-a `<button>` calling `scrollIntoView`. Reason: a fragment link creates a history entry,
-which breaks the back-button contract above; and with `default-src 'none'` the only
-legitimate links in the product are the external source citations, which are `<a>` with
-`target="_blank" rel="noopener noreferrer"`.
+**Anchor rule:** the page contains **exactly one** in-page `<a href="#...">` — the skip
+link. Every other jump is a `<button>` calling `scrollIntoView`. Reason: a fragment link
+creates a history entry, which breaks the back-button contract above, and with
+`default-src 'none'` the only other legitimate links in the product are the external
+source citations (`<a target="_blank" rel="noopener noreferrer">`). The skip link is the
+exception because it is the one thing a keyboard user needs before the page has painted,
+and because its history entry is the browser's expected behaviour.
 
 ---
 
@@ -228,7 +230,7 @@ and the design still works.
 | Absent | `ranked` empty → strip shows the ventilation instruction only, no `%`. |
 | Note | This is the only element that is *derived before the plan it duplicates*. It exists because the plan takes 90s and the hour does not wait. |
 
-### R4 · Exposure ladder — 4 rungs, 152px
+### R4 · Exposure ladder — 4 rungs, 144px
 
 | Property | Value |
 |---|---|
@@ -239,7 +241,10 @@ and the design still works.
 | Absent | `indoor_pm25` null → rungs 2–4 hidden, one line: `Indoor estimate unavailable for this home.` The ladder never partially scales: the three concentrations share one bar scale, and if one is missing the scale is recomputed from those present. |
 | A11y | The 3 concentration bars are `aria-hidden`; the rung text carries the value. The 4th rung is not on the same bar scale (µg/day, not µg/m³) and is typeset as a statement, never a bar. |
 
-### R5 · 24-hour surface — 240px
+### R5 · 24-hour surface — 224px
+
+**Purpose:** answer *when*. Ventilating is a timing decision, not a yes/no, and this is the
+only element in the product that can answer it.
 
 | Sub-component | Data | States | Absent |
 |---|---|---|---|
@@ -267,6 +272,10 @@ is a separate `role="slider"` wrapper (§7.2). The chart itself is not focusable
 
 ### R7 · Plan — `Today's plan`
 
+**Purpose:** turn ranked numbers into five dated actions in a register a tired parent will
+finish reading. The prose is decoration on decisions Python has already made; the rail is
+the substance and exists before the prose does.
+
 | Sub-component | Purpose | Data | States | Absent |
 |---|---|---|---|---|
 | Header + `planby` | Attribution: who wrote the words | `plan.generated_by` | `streaming` → `Drafting`; `deterministic` → `built-in wording`; else `worded on this device` | `—` |
@@ -281,6 +290,9 @@ is a separate `role="slider"` wrapper (§7.2). The chart itself is not focusable
 
 ### R8 · People — `Who carries it`
 
+**Purpose:** answer *who pays for this*. Four people in one flat breathe different air; this
+is the only surface that shows the distribution rather than the average.
+
 | Sub-component | Data | States | Absent |
 |---|---|---|---|
 | Person card ×N (button, `aria-pressed`) | `p.name`, `p.age`, `p.conditions`, `p.dose_ug`, `p.attributed_risk_share` | `ready` / `selected` (2px focus ring + `sel`) / `loading` (name + `—`) | `dose_ug` null → `— µg/day`, card still focusable, detail explains why. |
@@ -289,12 +301,18 @@ is a separate `role="slider"` wrapper (§7.2). The chart itself is not focusable
 
 ### R9 · Ledger — `Every option, by dose removed per rupee`
 
+**Purpose:** the audit surface. Every option with its arithmetic, cost and band, for the user
+who wants to check the ranking instead of trusting it — and the only place `/api/simulate`
+is reachable.
+
 14 rows, each a button that reveals the full arithmetic and a `Simulate` control.
 Data: `brief.ranked[]` (all fields) plus per-row `/api/simulate`. States: `collapsed` /
 `expanded` / `simulating` (row-level `Working it out…`, other rows stay interactive) /
 `simulated` / `error` (row-level line). Absent: `cost_inr` null → `no cost` not `₹0`.
 
 ### R10 · Footer — provenance strip
+
+**Purpose:** provenance, and the two doors out of the reading (Sources, Your household).
 
 Three spans: `Air: Open-Meteo/CAMS · 06:40`, model name from `/api/health`, and two
 buttons: `The arithmetic and its sources` (opens S2) and `Your household` (opens S1).
@@ -343,7 +361,7 @@ Each step names the **exact UI response**, not the intent.
    (`prefers-reduced-motion` → instant).
 3. **Setup sheet opens** via `showModal()` 600ms after the brief lands (not before — the
    user must see the page succeed first), `replaceState` so back exits the app. Step 1 is
-   **pre-filled with the example family**: `Anil 41 · Meera 38 · Aarav 7 · Kamla 68
+   **pre-filled with the example family**: `Anil 41 · Meera 38 · Aarav 7 · Amma 68
    (heart)`. Primary button reads `Continue` and is enabled.
 4. A first-run-only line above the steps: `These four are an example family. Change the
    names, or skip and use them as-is.`
@@ -371,8 +389,8 @@ Each step names the **exact UI response**, not the intent.
    button is **not** rendered. Instead the strip ends with `Open at 12:00.` and nothing
    pretends to remind.
 5. **Decision C (10 seconds, optional):** tick `Run the exhaust fan while cooking`
-   (`−6.1% · best for Kamla · ₹0`). Tally fires after a 180ms debounce:
-   `−6.1% · 6,283 → 5,899 µg a day`. The per-person bars show Kamla's bar drop the most.
+   (`−6.1% · best for Amma · ₹0`). Tally fires after a 180ms debounce:
+   `−6.1% · 6,283 → 5,899 µg a day`. The per-person bars show Amma's bar drop the most.
 6. Scroll one flick. Two done-markers from yesterday are struck through. The user taps
    `mark done` on `Shut the windows before 07:00` → becomes `done ✓`, `aria-pressed=true`.
 7. Leaves. Total time 25–40s, no sheet, no wait, no scroll past 900px.
@@ -397,7 +415,7 @@ Each step names the **exact UI response**, not the intent.
    cleared from localStorage in the same tick.
 7. The plan does **not** regenerate on every tick. Instead the plan card gains one line at
    its top: `You changed 3 things — −23.4%. That is your plan; the five below are the
-   defaults.` (§8, rejected alternative D.)
+   defaults.` (§8, ALT-6.)
 
 ### (d) Setting up a household for the first time (non-first-run)
 
@@ -407,7 +425,7 @@ Each step names the **exact UI response**, not the intent.
    `Person 5, age 30, no condition` and focuses the name input, selecting its text so a
    keystroke replaces it.
 3. Removing a person: a `Remove` button inside each row after the first, 44px, with
-   `aria-label="Remove Kamla"`. No confirmation dialog — the whole sheet is cancellable
+   `aria-label="Remove Amma"`. No confirmation dialog — the whole sheet is cancellable
    and the save is explicit.
 4. Age input: `inputmode="numeric"`, `min=0 max=110`, stepper buttons ±1 at 44px. Typing
    `6` then leaving the field does not silently become `06`.
@@ -434,8 +452,8 @@ This is a different product for this household and the UI must say so within one
 
 1. `household.fuel = "biomass"`. `brief.kitchen_pm25` ≈ 180. The ladder's third rung is no
    longer smaller than the second — it is the largest number on the page:
-   `Outside 205.4 · Inside 158.7 · **Your chulha 180.0** · Kamla 3,940 µg a day`.
-2. The `h1` changes subject: `The chulha is the biggest source you control. Kamla takes in
+   `Outside 205.4 · Inside 158.7 · **Your chulha 180.0** · Amma 3,940 µg a day`.
+2. The `h1` changes subject: `The chulha is the biggest source you control. Amma takes in
    3,940 µg a day.` — attribution first, blame nowhere. Copy rule enforced: no `should`,
    no `why don't you`, no `harmful`.
 3. The do-now strip's primary becomes the *free* action, never the expensive one:
@@ -505,7 +523,9 @@ signalling provisional but true. No shimmer, no skeleton grey — the rows are r
 from `brief.ranked`, and they will not move when the plan lands (same source, same order).
 
 **0–75s — the progress rail.** A single 2px rail under the panel fills
-`92 × (1 − e^(−t/26))` percent: 17% at 3s, 40% at 15s, 66% at 30s, 83% at 60s, 92% at 90s.
+`92 × (1 − e^(−t/26))` percent: 10% at 3s, 40% at 15s, 63% at 30s, 83% at 60s, 89% at 90s.
+It is asymptotic to 92 and never reaches it, so the bar can never complete before the text
+does.
 It **never resets and never loops**. A looping indeterminate bar is a lie about progress
 and, on a 90s wait, reads as a hang. The elapsed seconds are printed beside it
 (`· 12s`) because a number that increases is the cheapest proof of life available.
@@ -566,11 +586,11 @@ become a retry loop.
 | Token-by-token into an `aria-live` region | Floods a screen reader with 400 announcements. Prose streams into a plain region; only `Plan ready` / `The wording did not arrive` are announced. |
 | Auto-scrolling to the plan | Steals the user's position mid-read. The sticky status strip is the notification. |
 
-#### 5.4 The one client fix and the one optional server field
+#### 5.4 Three client changes and one optional server field
 
 The current client keeps only SSE events carrying `today` and **discards every `token`
-chunk** (`index.html`, the `if (obj && obj.today) finalObj = obj;` line). Three changes,
-all client-side:
+chunk** (`index.html`, the `if (obj && obj.today) finalObj = obj;` line). The fix is three
+changes, two of them purely client-side:
 
 1. On `token`: append `obj.text` (or the chunk's field) to the prose buffer, honouring the
    45 char/s cap.
@@ -587,9 +607,9 @@ all client-side:
 
 ## 6. Wireframes
 
-390px viewport ≈ **76 monospace columns** at 13px (5.13px/char). Boxes are drawn to that
-scale. Real content, real numbers: outdoor 205.4, indoors 123.4, stove 91.3, Amma
-1,791 µg, AQI 322, low 12:00, peak 23:00.
+390px viewport ≈ **74 monospace columns** at 13px (5.13px/char), i.e. the boxes below are
+≈380px wide. They are drawn to that scale. Real content, real numbers: outdoor 205.4,
+indoors 123.4, stove 91.3, Amma 1,791 µg, AQI 322, low 12:00, peak 23:00.
 
 ### 6.1 The fold — 740px on a real Android (844 emulated)
 
@@ -610,17 +630,17 @@ scale. Real content, real numbers: outdoor 205.4, indoors 123.4, stove 91.3, Amm
 │ Inside                     123.4  ██████████████████                   │
 │ Your kitchen                91.3  █████████████                        │
 │ Amma              1,791 µg a day · 28.5% of the household dose         │
-│                                                                        │ 366
+│                                                                        │ 358
 │ Next 24 hours              AQI 322 · low 12:00 · peak 23:00            │
 │                                                                        │
 │  ▁▁▂▃▅▇█▇▆▅▄▃▂▁▁▂▃▄▆▇█▇▅▃                                              │
 │  ░░░░▒▒▒▓▓▓▓▓▒▒░░░░░░▒▒▓▓▓                                             │
 │  ┊        ▲                                                            │
 │ 06  09  12  15  18  21  00  03                                         │
-│                                                                        │ 618
+│                                                                        │ 594
 │ 06:40 · outside 198.2 · inside 121.7 · not the cleanest hour           │
 │                                                                        │
-│ What could you change?                                                 │ 666
+│ What could you change?                                                 │ 642
 │ Tick anything you could actually do.                                   │
 │                                                                        │
 │ ☐ Cook with the window open and the fan on          −12%     ₹0        │
@@ -630,9 +650,8 @@ scale. Real content, real numbers: outdoor 205.4, indoors 123.4, stove 91.3, Amm
 ```
 
 The dashed rule is where the fold actually lands on a cold phone: the bench header and
-half a pick row are visible, the second row is not. That half-row is the whole invitation
-— a tappable card cut in half reads as "there is more machine here" in a way a chevron
-never does, and it costs zero vertical space.
+one whole pick row are visible, the second row is not. The user has seen a checkbox they
+can press before they have scrolled once.
 
 Reading of the fold, left to right, top to bottom: *whose air → what to do now → where it
 comes from → when it turns → this is changeable*.
@@ -656,7 +675,7 @@ comes from → when it turns → this is changeable*.
 │ 06:40  Shut the windows before cooking                        −18%     │
 │        The morning peak is outside, not in.                            │
 │ 07:00  Run the exhaust fan for 30 minutes                    −6.1%     │
-│        Best for Kamla at 41%                                           │
+│        Best for Amma at 41%                                            │
 │ 12:00  Open the east windows for 40 minutes                 −11.2%     │
 │        Cleanest hour of the day.                                       │
 │ 18:30  Keep the bedroom door shut while cooking              −4.0%     │
@@ -680,9 +699,9 @@ Top row of the plan region is the *prose that does not exist yet*, holding a res
 │ Tick anything you could actually do.                                   │
 │                                                                        │
 │ ☑ Cook with the window open and the fan on          −12%     ₹0        │
-│   best for Kamla · free                                                │
+│   best for Amma · free                                                 │
 │ ☑ Run the exhaust fan while cooking                −6.1%     ₹0        │
-│   best for Kamla · free                                                │
+│   best for Amma · free                                                 │
 │ ☐ Shut the windows at 18:00                         −4%      ₹0        │
 │   free                                                                 │
 │                                                                        │
@@ -702,7 +721,7 @@ Top row of the plan region is the *prose that does not exist yet*, holding a res
 │  Anil    −17%  ███████████████░░░                                      │
 │  Meera   −16%  ██████████████░░░░                                      │
 │  Aarav   −19%  ████████████████░░                                      │
-│  Kamla   −24%  ███████████████████                                     │
+│  Amma    −24%  ███████████████████                                     │
 │                                                                        │
 │  [ Clear ]                                                             │
 └────────────────────────────────────────────────────────────────────────┘
@@ -734,7 +753,7 @@ single decision is most of the product's credibility.
 
 | Rule | Value |
 |---|---|
-| Hit area | The entire 358×150 plot + 16px axis band. Not a 12px thumb. |
+| Hit area | The entire 358×140 plot + 16px axis band. Not a 12px thumb. |
 | Pointer | `pointerdown` → `setPointerCapture` → `pointermove` maps x to hour with `floor((x/358)*24)`, clamped 0–23. Works identically for touch, pen, mouse. |
 | Threshold | No drag threshold. A tap anywhere on the plot jumps to that hour. There is no hover-only preview. |
 | Visual | 1px vertical rule + a 6px caret at the top; no animation on move (a tween would lag the finger). |
@@ -760,17 +779,16 @@ single decision is most of the product's credibility.
 Tab sequence, top to bottom, skipping anything `aria-hidden`:
 
 1. `Skip to today's numbers` (visible on focus, 44px, top-left) → `#main`
-2. Place chip → Theme toggle
-3. (Chapter label — not focusable; it is a popover trigger and is reached *after* the
-   in-page jumps, see 9)
-4. Chart slider (`role=slider`)
-5. `What could you change?` — each pick button in DOM order, then `All 14 options`, then
+2. Place chip → Theme toggle → Chapter label (the region-menu button; `hidden` at scroll
+   0, so it enters the order only after the first scroll, in the position it occupies)
+3. Chart slider (`role=slider`)
+4. `What could you change?` — each pick button in DOM order, then `All 14 options`, then
    the tally's `Clear`
-6. Plan: `Read the numbers instead` / `Skip the wording` (when present), then each
+5. Plan: `Read the numbers instead` / `Skip the wording` (when present), then each
    `mark done`, then `Try the wording again` (on failure)
-7. Person cards → the open detail's `Close`
-8. Ledger rows (buttons) → each expanded row's `Simulate`
-9. Footer: `The arithmetic and its sources` → `Your household`
+6. Person cards → the open detail's `Close`
+7. Ledger rows (buttons) → each expanded row's `Simulate`
+8. Footer: `The arithmetic and its sources` → `Your household`
 
 Focus is never moved by data arriving. A response that lands while the user is typing or
 tabbing must not steal focus — this is why the plan never auto-scrolls and the toast is
@@ -812,7 +830,7 @@ That is the complete inventory: **56 links, 1 skip link, and everything else is 
 
 ## 8. What I rejected, and why
 
-### R1 · Tabs / bottom navigation (`Today · Plan · Act · Home`)
+### ALT-1 · Tabs / bottom navigation (`Today · Plan · Act · Home`)
 
 **Loses on:** the comparison. The bench's entire persuasive mechanism is watching the
 household number fall while the ladder is still visible above it. Tabs put the ladder and
@@ -822,7 +840,7 @@ are on — unfixable without a router, and a router is 4KB of state machine that
 product does not need. Also 56px of a 740px viewport permanently spent to navigate six
 screens. Rejected.
 
-### R2 · A wizard (Step 1 of 3 → your result → your plan)
+### ALT-2 · A wizard (Step 1 of 3 → your result → your plan)
 
 **Loses on:** the honesty that is the product. A wizard promises "answer these and we will
 tell you your family's risk" before it has computed anything, then delivers a number whose
@@ -832,7 +850,7 @@ mechanism this app can have under a no-service-worker constraint. And it hides t
 example household, so the first-run user cannot see a *working* product before being asked
 for input. Rejected — replaced by one auto-opened sheet over an already-rendered page.
 
-### R3 · A card feed / dashboard grid (the city-AQI-app pattern)
+### ALT-3 · A card feed / dashboard grid (the city-AQI-app pattern)
 
 **Loses on:** equal weight. A grid says these six things are equally important; they are
 not. The chain street → room → kitchen → person is a *ranked causal* relation, and a
@@ -840,7 +858,7 @@ not. The chain street → room → kitchen → person is a *ranked causal* relat
 rather than deciding, which is precisely the failure of the apps Saans is positioned
 against. Rejected.
 
-### R4 · Chat-first ("ask about your air")
+### ALT-4 · Chat-first ("ask about your air")
 
 **Loses on:** latency and truth. The numbers are computed by Python; a chat box invites
 questions the engine cannot answer (school policy, tomorrow, "is my landlord liable"), and
@@ -848,7 +866,7 @@ each turn would cost 30–90s on a 4B local model. A single misfire destroys the
 that took 56 sourced constants to build. Chat is also the worst possible surface for a
 90-second wait: a blank bubble with three dots. Rejected.
 
-### R5 · Sheet-per-section (an iOS-style stack of modals)
+### ALT-5 · Sheet-per-section (an iOS-style stack of modals)
 
 **Loses on:** the back stack. Nested `<dialog>`s opened from a page with no router produce
 a history stack that no longer corresponds to what the user sees after a reload, a
@@ -856,7 +874,7 @@ deep-link, or a mid-sheet refresh. It also cannot show the chart and the bench
 simultaneously, which is requirement zero. Rejected — sheets are used for exactly two
 tasks that are genuinely modal, and nowhere else.
 
-### R6 · "Regenerate the plan on every tick"
+### ALT-6 · "Regenerate the plan on every tick"
 
 **Loses on:** 90 seconds per tap. The tempting way to fix "bench and plan are
 disconnected" is to re-run the LLM for the user's selection. It would make the bench feel
@@ -864,7 +882,7 @@ like a slot machine with a 90s spin. Rejected in favour of a one-line bridge: th
 authoritative for *your* selection, the plan is explicitly *the defaults, worded*, and the
 plan card says so in one sentence when picks exist.
 
-### R7 · A separate "results" view for the plan, opened on completion
+### ALT-7 · A separate "results" view for the plan, opened on completion
 
 **Loses on:** interruption. Pushing a new view when a background job finishes moves the
 page under a user who is reading the bench, and it is the classic way AI features feel
@@ -875,8 +893,10 @@ announces itself once.
 
 ## 9. Friction budget
 
-**Cost** = (seconds lost per occurrence × occurrences per visit) + abandonment risk,
-scored 1–5, weighted 3× because an abandoned first visit has no second visit.
+**Cost index** = seconds lost on the critical path, multiplied by abandonment risk (1–5)
+and by how often the friction recurs. It is an ordinal, not a measurement — it exists to
+rank, and the ranking is the argument. Abandonment is weighted heaviest because an
+abandoned first visit has no second visit, which is the only visit this app can rely on.
 
 | # | Friction | Time lost | Risk | Cost | Who pays |
 |---|---|---|---|---|---|
@@ -928,6 +948,18 @@ and the tally remains the only place a *combined* percentage is printed. The sec
 is **stale reconciliation** — a pick removed after the plan rendered leaves an orphan
 pill. Handled by recomputing pills from `PICKS` on every tally response, never from the
 plan payload.
+
+### Accepted, not removed
+
+- **#5, the plan sits below the bench.** Moving it above would invert the verb: the user
+  would read five instructions before learning they can choose their own. The cost is paid
+  once per visit, and the sticky `Writing your plan · 12s` strip makes the plan's existence
+  known from the fold. Accepted.
+- **#7, no share or export.** A print stylesheet is a 20-line addition and the README
+  already promises one; it is in scope for whoever implements §3, but it is not an
+  information-architecture problem and this document does not solve it. Named, not fixed.
+- **#8, the evidence surface.** It is one tap from the footer and one from any `kind`
+  chip in the ladder. That is the correct depth for a researcher surface. Accepted.
 
 ### What this architecture deliberately does **not** fix
 
@@ -981,5 +1013,6 @@ Chapter labels shown in the masthead, in order: `Today` → `What you can change
    PM2.5 one person actually breathes in.`
 7. Money is `₹` with a range when uncertain; `free` when `cost_inr === 0`; `no cost` when
    the field is absent — those are three different facts and must not share a string.
+
 
 

@@ -287,6 +287,13 @@ border-top:1px solid var(--rule);border-left:1px solid var(--rule)}
 background:var(--sunk);border:1px solid var(--rule);border-radius:var(--rad);
 padding:7px 9px;margin-top:6px;max-height:92px;overflow:hidden;white-space:pre-wrap;
 word-break:break-word;opacity:.85}
+/* A first-run notice, not an error: the numbers are correct for someone, just not
+   for this person. Uses the accent, never the alarm colour. */
+.samplebar{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:9px 11px;
+margin-top:10px;border:1px solid var(--accent);border-left-width:3px;border-radius:var(--rad);
+background:var(--sunk);font-size:12px;line-height:1.45;color:var(--ink2)}
+.samplebar b{color:var(--ink);font-weight:600}
+.samplebar .btn{flex:0 0 auto;min-height:32px;padding:0 10px;font-size:11.5px}
 .colophon{margin-top:24px;padding-top:10px;border-top:1px solid var(--rule);font-family:var(--mono);
 font-size:9.5px;color:var(--muted);display:flex;gap:8px 16px;flex-wrap:wrap;line-height:1.5}
 .colophon b{color:var(--ink2);font-weight:500}
@@ -316,6 +323,10 @@ html[data-theme="dark"]{--rule:#7d7669;--rule2:#a29a8b;--muted:#d8d1c4}}
   </div>
 
   <main id="main" tabindex="-1">
+    <div class="samplebar" id="samplebar" hidden>
+      <span><b>These numbers are for a sample household</b> — four people, gas stove, two-wheeler. Nothing below is about you yet.</span>
+      <button class="btn ghost" id="sampleSet" type="button">Describe yours</button>
+    </div>
     <section class="hero" aria-label="Today">
       <div>
         <div class="kicker"><span id="kicker">Delhi · PM2.5</span></div>
@@ -455,6 +466,11 @@ const DEFAULTS = {
   office:true
 };
 function household() { const h = store.get(HK, null); return h && h.people ? h : JSON.parse(JSON.stringify(DEFAULTS)); }
+/* Is what we are showing this person's household, or the four sample people?
+   Every number on the page depends on the answer, and before this the page
+   asserted "Amma carries 37.6% of the household's dose" to someone who had never
+   mentioned an Amma. */
+function isSample() { const h = store.get(HK, null); return !(h && h.people); }
 
 function tickClock() {
   const tz = (LAST && LAST.brief && LAST.brief.profile && LAST.brief.profile.tz) || "Asia/Kolkata";
@@ -667,7 +683,8 @@ async function runCombine() {
   }
   $("#cutSub").textContent = "Working it out…";
   try {
-    const r = await post("/api/combine", { household: household(), keys: PICKS });
+    const hh0 = household();
+    const r = await post("/api/combine", Object.assign({}, hh0, { keys: PICKS }));
     if (token !== combineToken) return;
     if (!r.ok) { $("#cutSub").textContent = r.error || "Could not compute that."; return; }
     const e = r.effect;
@@ -714,12 +731,59 @@ async function runCombine() {
 }
 
 function actionKey(t) {
-  return ((t.time || "") + "|" + (t.action || "")).toLowerCase()
+  // Dated. The identical key used to carry over every day, so an action marked
+  // done on Monday still read as done on Tuesday — the only retention loop in the
+  // product decayed by construction. Local date, not UTC, or a 05:30 IST tick
+  // lands on the previous day.
+  const d = new Date();
+  const day = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  return day + "|" + ((t.time || "") + "|" + (t.action || "")).toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 }
-function doneMap() { return store.get(DONE_KEY, {}) || {}; }
+function doneMap() {
+  // Keep only today's marks. Dated keys are the point, but they would grow
+  // without bound in a browser that is opened every morning for a winter.
+  const m = store.get(DONE_KEY, {}) || {};
+  const d = new Date();
+  const today = d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  const fresh = {};
+  Object.keys(m).forEach(k => { if (k.indexOf(today + "|") === 0) fresh[k] = m[k]; });
+  return fresh;
+}
 function isDone(k) { return !!doneMap()[k]; }
 function markDone(k, on) { const m = doneMap(); if (on) m[k] = 1; else delete m[k]; store.set(DONE_KEY, m); }
+
+/* Refresh the plan's numbers without re-wording them.
+
+   The five actions, their times and their effects come from narrator.skeleton(),
+   which is pure Python over brief+ranked and takes milliseconds. Only the three
+   paragraphs need the 4B model, which takes 30-90 seconds. So editing a child's
+   age must not re-generate prose: this fetches the real skeleton from the server
+   (same function the model path uses, so the two can never drift), keeps the
+   words already on screen, and labels them as belonging to the previous
+   household rather than leaving them silently stale. */
+async function refreshPlanNumbers() {
+  const box = $("#plan");
+  if (!box || !LAST) return;
+  const prev = box.querySelector(".planbox");
+  if (!prev) { await loadPlan(); return; }
+  const opening = (prev.querySelector(".prose.serif") || {}).textContent || "";
+  const kids = (prev.querySelectorAll(".prose")[1] || {}).textContent || "";
+  const limit = (prev.querySelector(".limit") || {}).textContent || "";
+  const wasModel = prev.dataset.generated === "model";
+  try {
+    const skel = await post("/api/skeleton", household());
+    if (!skel || !skel.today) { await loadPlan(); return; }
+    renderPlan(Object.assign({}, skel, {
+      opening: opening, for_children: kids, what_this_does_not_fix: limit,
+      generated_by: wasModel ? "model" : "deterministic"
+    }), null);
+    if (wasModel && opening) {
+      const note = el("p", "limit", "The wording above describes the previous household. The numbers have been recalculated.");
+      box.appendChild(note);
+    }
+  } catch (err) { await loadPlan(); }
+}
 
 async function loadPlan() {
   const box = $("#plan");
@@ -738,7 +802,7 @@ async function loadPlan() {
   box.appendChild(raw);
   try {
     const r = await fetch("/api/plan", { method:"POST", headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ household: household() }) });
+      body:JSON.stringify(household()) });
     if (!r.ok || !r.body) throw new Error("plan " + r.status);
     const reader = r.body.getReader(); const dec = new TextDecoder();
     let buf = "", finalObj = null, factsMeta = null, chars = 0;
@@ -1058,6 +1122,7 @@ function renderEditor() {
   save.addEventListener("click", async () => {
     store.set(HK, household());
     note.textContent = "saved";
+    // 30-90 seconds of model time. Only ever on an explicit ask.
     await boot(true);
     await loadPlan();
     setTimeout(() => { note.textContent = ""; }, 2200);
@@ -1111,12 +1176,27 @@ function editPerson(i) {
     t.conditions = cond.value ? [cond.value] : [];
     t.cooks = $("#p_cooks").checked;
     t.commutes = $("#p_commutes").checked;
-    store.set(HK, hh); renderEditor(); await boot(true); await loadPlan();
+    store.set(HK, hh); renderEditor();
+    // The numbers must follow the new household. The wording does not have to:
+    // re-wording is 30-90 seconds of model time and the prose is not
+    // load-bearing. Refresh the plan's figures only.
+    await boot(true);
+    await refreshPlanNumbers();
   });
   box.appendChild(done);
   const body = $("#edbody");
   body.insertBefore(box, body.children[0].nextSibling || null);
 }
+
+/* First-run: "Describe yours" opens the household editor and puts the cursor in
+   it rather than just scrolling vaguely at it. */
+$("#sampleSet").addEventListener("click", () => {
+  const ed = $("#ed");
+  if (ed) ed.open = true;
+  const first = $("#edbody .pchip");
+  if (ed) ed.scrollIntoView({ block: "start", behavior: "smooth" });
+  if (first) setTimeout(() => first.focus(), 260);
+});
 
 $("#placeBtn").addEventListener("click", () => {
   const p = $("#locpanel"), open = p.hidden;
@@ -1150,7 +1230,8 @@ $("#q").addEventListener("input", e => {
           $("#place").textContent = c.name;
           $("#locpanel").hidden = true;
           $("#placeBtn").setAttribute("aria-expanded", "false");
-          await boot(true); await loadPlan();
+          await boot(true);
+          await refreshPlanNumbers();
         });
         box.appendChild(b);
       });
@@ -1163,13 +1244,20 @@ $("#q").addEventListener("input", e => {
   }, 280);
 });
 
-async function boot() {
+async function boot(regen) {
   const h = household();
   $("#place").textContent = (h.location && h.location.city) || "Delhi";
+  // Say plainly when the numbers are a sample. Correct-for-someone-else is not
+  // the same as honest, unless it is labelled.
+  $("#samplebar").hidden = !isSample();
   const hh = tickClock();
   if (HOUR === null) HOUR = hh;
   try {
-    const d = await post("/api/brief", { household: h });
+    // The endpoint declares `def brief(h: Household)`, so the household fields
+    // belong at the TOP LEVEL. Sending {household: h} made FastAPI ignore it and
+    // silently substitute the default four-person household, so a configured
+    // biomass flat was shown gas-stove numbers for everyone.
+    const d = await post("/api/brief", h);
     LAST = d;
     const b = d.brief;
     paintTheme();
